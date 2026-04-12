@@ -1,17 +1,63 @@
-# itda
+# 🤝 잇다 (itda) - 가족을 연결하다
 
-A new Flutter project.
+> 멀리 떨어져 사는 자녀와 노년층 부모 간의 소통 단절을 해소하고, AI 음성 분석을 통해 건강 이상 징후를 조기 모니터링하는 모바일 서비스.
 
-## Getting Started
+<br>
 
-This project is a starting point for a Flutter application.
+## 🛠 기술 스택 (Tech Stack)
+- **Framework:** Flutter (3.41.5), Dart (3.11.3)
+- **State Management:** Riverpod
+- **Routing:** go_router
 
-A few resources to get you started if this is your first Flutter project:
+<br>
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## ✨ 핵심 기능 (Key Features)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### 👨‍👩‍👧 자녀(보호자) 모드
+- **사진 업로드:** 부모님께 보낼 일상 사진 및 영상 예약 전송 기능
+- **모니터링 대시보드:** 부모님의 일일/주간 건강 요약 리포트 시각화
+- **위험 알림:** AI 분석 기반 이상 징후(치매 전조증상 등) 발생 시 푸시 알림 수신
+
+### 👵👴 부모(노년층) 모드
+- **직관적인 수신:** 푸시 알림을 통한 간편한 사진 열람 및 안부 확인
+- **건강 퀘스트:** 타이핑 부담을 없앤 원터치 음성 녹음 및 버튼식 간편 답장
+- **자연스러운 연결:** 앱 내 퀘스트 보상 확인 후 기존 메신저/전화로의 매끄러운 연결 지원
+
+<br>
+
+## 🚀 시작하기 (Getting Started)
+
+본 프로젝트는 원활한 협업을 위해 로컬 환경의 Flutter 버전을 팀 내 합의된 버전(3.41.5)으로 맞춘 후 실행해 주세요.
+
+```bash
+# 1. 저장소 클론
+$ git clone https://github.com/CloudComputing-KHU/FE.git
+
+# 2. 프로젝트 디렉토리로 이동
+$ cd FE
+
+# 3. 패키지 다운로드
+$ flutter pub get
+
+# 4. 프로젝트 실행 (안드로이드 에뮬레이터 기준)
+$ flutter run
+````
+
+<br>
+
+## 📁 폴더 구조 (Folder Structure)
+
+
+```text
+lib/
+ ├── core/          # 공통 기반 로직 (API 클라이언트, 라우터, 테마 등)
+ ├── features/      # 핵심 기능 모듈 (도메인별 완벽 분리)
+ │   ├── auth/      # 로그인 및 사용자 모드 분기
+ │   ├── child/     # 자녀용 화면 및 비즈니스 로직
+ │   └── parent/    # 노년층용 화면 및 비즈니스 로직
+ ├── services/      # 백엔드 API 연동 레이어
+ └── shared/        # 공통 UI 컴포넌트 위젯 (로딩, 에러 뷰 등)
+```
+
+<br>
+
