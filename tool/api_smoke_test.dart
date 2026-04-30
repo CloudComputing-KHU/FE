@@ -6,16 +6,20 @@
 /// ```
 library;
 
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 import 'package:itda/core/api/api_client.dart';
 import 'package:itda/services/quest_service.dart';
+import 'package:itda/services/voice_upload_service.dart';
 
 Future<void> main() async {
   print('=== ITDA API Smoke Test ===\n');
 
   final Dio dio = ApiClient.create();
   final questService = QuestService(dio);
+  final voiceUploadService = VoiceUploadService(dio);
 
   // 1) GET /questions/health
   try {
@@ -45,7 +49,7 @@ Future<void> main() async {
     print('    ✗ 실패: $e\n');
   }
 
-  // 3) GET /answers/health?user_id=parent_001 (답변 목록 조회)
+  // 3) GET /answers/health?user_id=parent_001
   try {
     print('[3] GET /answers/health?user_id=parent_001');
     final answers = await questService.getAnswers(
@@ -59,6 +63,33 @@ Future<void> main() async {
           '@ ${a.createdAt}');
     }
     print('');
+  } catch (e) {
+    print('    ✗ 실패: $e\n');
+  }
+
+  // 4) POST /answers/health/voice (음성 답변 업로드)
+  try {
+    print('[4] POST /answers/health/voice');
+    const voicePath = 'test_voice.wav';
+    if (!await File(voicePath).exists()) {
+      print('    ⚠ $voicePath 파일이 없습니다. 더미 파일을 먼저 생성하세요.\n');
+    } else {
+      final result = await voiceUploadService.uploadVoice(
+        type: 'health',
+        userId: 'parent_001',
+        questionId: 'q_health_today',
+        filePath: voicePath,
+      );
+      print('    ✓ 성공');
+      print('    answerId         : ${result.answerId}');
+      print('    voiceStatus      : ${result.voiceStatus}');
+      print('    voiceFileKey     : ${result.voiceFileKey}');
+      print('    originalFilename : ${result.originalFilename}');
+      print('    storedFilename   : ${result.storedFilename}');
+      print('    fileSize         : ${result.fileSize} bytes');
+      print('    contentType      : ${result.contentType}');
+      print('    message          : ${result.message}\n');
+    }
   } catch (e) {
     print('    ✗ 실패: $e\n');
   }

@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 로컬 스모크 테스트용 더미 음성 파일
+test_voice.wav
