@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import 'package:itda/core/api/api_client.dart';
+import 'package:itda/services/photo_api_service.dart';
 import 'package:itda/services/quest_service.dart';
 import 'package:itda/services/voice_upload_service.dart';
 
@@ -20,6 +21,7 @@ Future<void> main() async {
   final Dio dio = ApiClient.create();
   final questService = QuestService(dio);
   final voiceUploadService = VoiceUploadService(dio);
+  final photoApiService = PhotoApiService(dio);
 
   // 1) GET /questions/health
   try {
@@ -35,7 +37,7 @@ Future<void> main() async {
     print('    ✗ 실패: $e\n');
   }
 
-  // 2) POST /answers/health (텍스트 답변 제출)
+  // 2) POST /answers/health
   try {
     print('[2] POST /answers/health');
     await questService.submitAnswer(
@@ -67,12 +69,12 @@ Future<void> main() async {
     print('    ✗ 실패: $e\n');
   }
 
-  // 4) POST /answers/health/voice (음성 답변 업로드)
+  // 4) POST /answers/health/voice
   try {
     print('[4] POST /answers/health/voice');
     const voicePath = 'test_voice.wav';
     if (!await File(voicePath).exists()) {
-      print('    ⚠ $voicePath 파일이 없습니다. 더미 파일을 먼저 생성하세요.\n');
+      print('    ⚠ $voicePath 파일이 없습니다.\n');
     } else {
       final result = await voiceUploadService.uploadVoice(
         type: 'health',
@@ -83,13 +85,45 @@ Future<void> main() async {
       print('    ✓ 성공');
       print('    answerId         : ${result.answerId}');
       print('    voiceStatus      : ${result.voiceStatus}');
-      print('    voiceFileKey     : ${result.voiceFileKey}');
-      print('    originalFilename : ${result.originalFilename}');
-      print('    storedFilename   : ${result.storedFilename}');
-      print('    fileSize         : ${result.fileSize} bytes');
-      print('    contentType      : ${result.contentType}');
-      print('    message          : ${result.message}\n');
+      print('    voiceFileKey     : ${result.voiceFileKey}\n');
     }
+  } catch (e) {
+    print('    ✗ 실패 (S3 키 미설정 시 502 정상): $e\n');
+  }
+
+  // 5) POST /photos
+  try {
+    print('[5] POST /photos');
+    const photoPath = 'test_photo.jpg';
+    if (!await File(photoPath).exists()) {
+      print('    ⚠ $photoPath 파일이 없습니다.\n');
+    } else {
+      final photo = await photoApiService.uploadPhoto(
+        senderUserId: 'child_001',
+        receiverUserId: 'parent_001',
+        filePath: photoPath,
+        caption: '점심 먹어요 🍱',
+      );
+      print('    ✓ 성공');
+      print('    photoId          : ${photo.id}');
+      print('    status           : ${photo.status}');
+      print('    imageUrl         : ${photo.imageUrl}');
+      print('    caption          : ${photo.caption}\n');
+    }
+  } catch (e) {
+    print('    ✗ 실패 (S3 키 미설정 시 502 정상): $e\n');
+  }
+
+  // 6) GET /photos/history?user_id=child_001
+  try {
+    print('[6] GET /photos/history?user_id=child_001');
+    final history = await photoApiService.getHistory('child_001');
+    print('    ✓ 성공');
+    print('    count: ${history.length}');
+    for (final p in history.take(3)) {
+      print('    - [${p.status}] ${p.caption ?? "(no caption)"} @ ${p.createdAt}');
+    }
+    print('');
   } catch (e) {
     print('    ✗ 실패: $e\n');
   }
