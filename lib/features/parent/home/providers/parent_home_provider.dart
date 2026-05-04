@@ -1,4 +1,145 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 부모 홈 목록 갱신 등에 쓸 버전 카운터. API 연동 시 무효화 트리거로 사용할 수 있습니다.
-final parentHomeVersionProvider = StateProvider<int>((ref) => 0);
+import 'package:itda/features/parent/data/parent_models.dart';
+import 'package:itda/features/parent/data/parent_repository.dart';
+
+// ── 공용 Repository 인스턴스 ────────────────────────────────────────────────
+
+final parentRepositoryProvider = Provider<ParentRepository>(
+  (_) => ParentRepository(),
+);
+
+// ── 현재 로그인한 부모 user_id ───────────────────────────────────────────────
+// TODO: 인증 연동 후 실제 user_id로 교체하세요.
+const _kParentUserId = 'parent_001';
+
+// ── 받은 사진 목록 ──────────────────────────────────────────────────────────
+
+class ReceivedPhotosNotifier
+    extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
+  @override
+  Future<List<ParentReceivedPhoto>> build() {
+    return ref
+        .read(parentRepositoryProvider)
+        .fetchReceivedPhotos(_kParentUserId);
+  }
+
+  /// 사진 확인 후 목록에서 제거합니다 (낙관적 업데이트).
+  void removeByIds(Set<String> ids) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(
+      current.where((p) => !ids.contains(p.photoId)).toList(),
+    );
+  }
+
+  /// 서버에서 다시 불러옵니다.
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref
+          .read(parentRepositoryProvider)
+          .fetchReceivedPhotos(_kParentUserId),
+    );
+  }
+}
+
+final receivedPhotosProvider =
+    AsyncNotifierProvider.autoDispose<ReceivedPhotosNotifier,
+        List<ParentReceivedPhoto>>(ReceivedPhotosNotifier.new);
+
+// ── 지난 사진 이력 ──────────────────────────────────────────────────────────
+
+class PastPhotosNotifier
+    extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
+  @override
+  Future<List<ParentReceivedPhoto>> build() {
+    return ref
+        .read(parentRepositoryProvider)
+        .fetchPhotoHistory(_kParentUserId);
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref
+          .read(parentRepositoryProvider)
+          .fetchPhotoHistory(_kParentUserId),
+    );
+  }
+}
+
+final pastPhotosProvider =
+    AsyncNotifierProvider.autoDispose<PastPhotosNotifier,
+        List<ParentReceivedPhoto>>(PastPhotosNotifier.new);
+
+// ── 오늘의 질문 ─────────────────────────────────────────────────────────────
+
+/// 질문 타입별 캐시. 같은 타입은 화면 이동 후에도 재요청하지 않습니다.
+final questionProvider = FutureProvider.autoDispose
+    .family<ParentQuestion, String>((ref, type) {
+  return ref.read(parentRepositoryProvider).fetchQuestion(type);
+});
+
+// ── 건강 퀘스트 완료 단계 ────────────────────────────────────────────────────
+
+/// 0 = 아무것도 안 함, 1 = health 완료, 2 = meal 완료, 3 = mood 완료(전체 완료)
+final healthQuestStepProvider = StateProvider<int>((ref) => 0);
+
+// ── 답변 제출 ────────────────────────────────────────────────────────────────
+
+/// 선택형 답변을 제출하고 step을 올립니다.
+/// 반환값: 성공 여부
+Future<bool> submitParentAnswer({
+  required WidgetRef ref,
+  required String type,
+  required String questionId,
+  required String answer,
+}) async {
+  try {
+    await ref.read(parentRepositoryProvider).submitAnswer(
+          type: type,
+          userId: _kParentUserId,
+          questionId: questionId,
+          answer: answer,
+        );
+    ref.read(healthQuestStepProvider.notifier).update((s) => s + 1);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// 음성 답변을 업로드하고 step을 올립니다.
+Future<bool> submitParentVoice({
+  required WidgetRef ref,
+  required String type,
+  required String questionId,
+  required String filePath,
+}) async {
+  try {
+    await ref.read(parentRepositoryProvider).submitVoice(
+          type: type,
+          userId: _kParentUserId,
+          questionId: questionId,
+          filePath: filePath,
+        );
+    ref.read(healthQuestStepProvider.notifier).update((s) => s + 1);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// stepIndex → API type 문자열
+String questTypeForStep(int step) {
+  switch (step.clamp(0, 2)) {
+    case 1:
+      return 'meal';
+    case 2:
+      return 'mood';
+    case 0:
+    default:
+      return 'health';
+  }
+}

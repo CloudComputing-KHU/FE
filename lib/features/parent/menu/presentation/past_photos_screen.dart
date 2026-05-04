@@ -1,19 +1,107 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/theme/app_colors.dart';
+import 'package:itda/features/parent/data/parent_models.dart';
 import 'package:itda/features/parent/home/presentation/parent_photo_view_widgets.dart';
+import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/shared/widgets/round_white_icon_button.dart';
 
 /// 새 사진 보기와 동일 레이아웃 — 날짜·같은 날 도트 · 스와이프 · 이전/다음 (반응 플로우 없음)
-class PastPhotosScreen extends StatefulWidget {
+class PastPhotosScreen extends ConsumerWidget {
   const PastPhotosScreen({super.key});
 
   @override
-  State<PastPhotosScreen> createState() => _PastPhotosScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photosAsync = ref.watch(pastPhotosProvider);
+
+    return photosAsync.when(
+      loading: () => Scaffold(
+        backgroundColor: ItdaColors.orangePale,
+        body: const Center(
+          child: CircularProgressIndicator(color: ItdaColors.orange),
+        ),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: ItdaColors.orangePale,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: RoundWhiteIconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icons.chevron_left_rounded,
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('사진을 불러오지 못했어요.',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () =>
+                            ref.read(pastPhotosProvider.notifier).refresh(),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (photos) {
+        if (photos.isEmpty) {
+          return Scaffold(
+            backgroundColor: ItdaColors.orangePale,
+            body: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                    child: RoundWhiteIconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icons.chevron_left_rounded,
+                    ),
+                  ),
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        '저장된 사진이 없어요',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        // 데이터가 있으면 실제 스크롤 화면으로 넘깁니다.
+        return _PastPhotosView(photos: photos);
+      },
+    );
+  }
 }
 
-class _PastPhotosScreenState extends State<PastPhotosScreen> {
+class _PastPhotosView extends StatefulWidget {
+  const _PastPhotosView({required this.photos});
+
+  final List<ParentReceivedPhoto> photos;
+
+  @override
+  State<_PastPhotosView> createState() => _PastPhotosViewState();
+}
+
+class _PastPhotosViewState extends State<_PastPhotosView> {
   late final PageController _pageController;
   late int _pageIndex;
   late Map<String, List<int>> _indicesByDate;
@@ -22,7 +110,18 @@ class _PastPhotosScreenState extends State<PastPhotosScreen> {
   @override
   void initState() {
     super.initState();
-    _photos = List<ParentPendingPhoto>.from(MockItdaData.pastArchivePhotos);
+    _photos = widget.photos
+        .map(
+          (p) => ParentPendingPhoto(
+            id: p.photoId,
+            imageUrl: p.displayUrl,
+            caption: p.caption ?? '',
+            arrivedAt: _arrivedAt(p.createdAt),
+            dateLabel: _dateLabel(p.createdAt),
+            isNew: false,
+          ),
+        )
+        .toList();
     _pageIndex = 0;
     _pageController = PageController();
     _rebuildDateIndex();
@@ -62,34 +161,6 @@ class _PastPhotosScreenState extends State<PastPhotosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_photos.isEmpty) {
-      return Scaffold(
-        backgroundColor: ItdaColors.orangePale,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                child: RoundWhiteIconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: Icons.chevron_left_rounded,
-                ),
-              ),
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    '저장된 사진이 없어요',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     final atFirst = _pageIndex <= 0;
     final atLast = _pageIndex >= _photos.length - 1;
     final dots = _sameDayIndices.length;
@@ -154,4 +225,14 @@ class _PastPhotosScreenState extends State<PastPhotosScreen> {
       ),
     );
   }
+}
+
+// ── 날짜 헬퍼 ────────────────────────────────────────────────────────────────
+
+String _arrivedAt(DateTime dt) {
+  return '${dt.month}월 ${dt.day}일';
+}
+
+String _dateLabel(DateTime dt) {
+  return '${dt.month}월 ${dt.day}일';
 }
