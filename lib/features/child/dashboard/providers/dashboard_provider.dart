@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart'
-    show parentAnswersProvider;
+    show parentAnswersProvider, parentDementiaHistoryProvider;
 
 /// 자녀 대시보드 탭 인덱스 등 내부 상태. 필요 시 화면과 연결합니다.
 final dashboardTabProvider = StateProvider<int>((ref) => 0);
@@ -32,9 +33,6 @@ class TodayQuestStatus {
 
 /// `parentAnswersProvider(type)`을 3개 type 다 watch해서
 /// 오늘자 응답 여부로 합성합니다.
-/// - 모든 fetch가 완료되어야 data 상태로 진입.
-/// - 하나라도 로딩 중이면 loading.
-/// - 하나라도 에러면 error.
 final todayQuestsProvider = Provider.autoDispose<AsyncValue<List<TodayQuestStatus>>>((ref) {
   const types = [
     ('health', '건강 퀘스트'),
@@ -69,4 +67,46 @@ final todayQuestsProvider = Provider.autoDispose<AsyncValue<List<TodayQuestStatu
     ));
   }
   return AsyncData(results);
+});
+
+// ── 대시보드 요약 — 응답 완료 카운트 ─────────────────────────────────────────
+
+/// "응답 완료 X/3" 타일에 쓸 값.
+/// 로딩/에러 상황에선 0/3으로 폴백 (UI는 mock처럼 보이지만 실 데이터로 점진 갱신).
+final answeredCountTodayProvider = Provider.autoDispose<int>((ref) {
+  final async = ref.watch(todayQuestsProvider);
+  return async.maybeWhen(
+    data: (list) => list.where((q) => q.responded).length,
+    orElse: () => 0,
+  );
+});
+
+// ── 대시보드 요약 — 위험 알림 카운트 ─────────────────────────────────────────
+
+/// `parentDementiaHistoryProvider`에서 risk_level이 medium/high인 항목 수.
+final riskAlertCountProvider = Provider.autoDispose<int>((ref) {
+  final async = ref.watch(parentDementiaHistoryProvider);
+  return async.maybeWhen(
+    data: (items) => items
+        .where((i) =>
+            i.riskLevel == RiskLevel.medium || i.riskLevel == RiskLevel.high)
+        .length,
+    orElse: () => 0,
+  );
+});
+
+// ── 대시보드 위험 알림 카드 — 최근 medium/high 항목들 ────────────────────────
+
+/// 위험 알림 카드 섹션에 표시할 최신 medium/high 분석 결과들 (최대 [limit]개).
+final recentRiskAlertsProvider =
+    Provider.autoDispose<AsyncValue<List<DementiaAnalysisItem>>>((ref) {
+  final async = ref.watch(parentDementiaHistoryProvider);
+  return async.whenData((items) {
+    final risky = items
+        .where((i) =>
+            i.riskLevel == RiskLevel.medium || i.riskLevel == RiskLevel.high)
+        .take(2)
+        .toList();
+    return risky;
+  });
 });
