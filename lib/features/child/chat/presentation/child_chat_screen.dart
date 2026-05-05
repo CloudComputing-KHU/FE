@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/models/photo.dart';
 import 'package:itda/core/theme/app_colors.dart';
+import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 
-/// 소통 탭. 상단 [ChildShellHeader], 타임라인은 날짜·사진·부모 반응 타일.
-class ChildChatScreen extends StatelessWidget {
+/// 소통 탭. 자녀가 보낸 사진은 BE의 `GET /photos/history`로 가져오고,
+/// 부모의 반응(이모지·음성)은 BE에 매칭되는 API가 없어 데모 데이터를 유지합니다.
+class ChildChatScreen extends ConsumerWidget {
   const ChildChatScreen({super.key});
 
   static const BorderRadius _radiusMeBubble = BorderRadius.only(
@@ -16,7 +20,6 @@ class ChildChatScreen extends StatelessWidget {
     bottomRight: Radius.circular(18),
   );
 
-  /// 상대(어머니) 말풍선 — 내 말풍선과 대칭(왼쪽 위만 작게)
   static const BorderRadius _radiusMomBubble = BorderRadius.only(
     topLeft: Radius.circular(4),
     topRight: Radius.circular(18),
@@ -25,9 +28,9 @@ class ChildChatScreen extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final parentName = MockItdaData.parentDisplayName;
-    final entries = MockItdaData.childCommTimeline;
+    final sentAsync = ref.watch(sentPhotosProvider);
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -41,19 +44,111 @@ class ChildChatScreen extends StatelessWidget {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate(
-                _buildTimelineList(
-                  parentName: parentName,
-                  entries: entries,
+            sliver: sentAsync.when(
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: ChildDashboardColors.orange,
+                    ),
+                  ),
                 ),
               ),
+              error: (e, _) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '소통 기록을 불러오지 못했어요.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: ChildDashboardColors.textSub,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () =>
+                              ref.read(sentPhotosProvider.notifier).refresh(),
+                          child: const Text('다시 시도'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              data: (photos) {
+                if (photos.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
+                        child: Text(
+                          '아직 보낸 사진이 없어요.\n부모님께 첫 사진을 보내볼까요?',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: ChildDashboardColors.textSub,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final entries = _buildEntriesFromPhotos(photos);
+                return SliverList(
+                  delegate: SliverChildListDelegate(
+                    _buildTimelineList(
+                      parentName: parentName,
+                      entries: entries,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
       ),
     );
   }
+}
+
+List<ChildCommEntry> _buildEntriesFromPhotos(List<Photo> photos) {
+  final out = <ChildCommEntry>[];
+  String? currentDateKey;
+
+  for (final p in photos) {
+    final dateKey = '${p.createdAt.year}-${p.createdAt.month}-${p.createdAt.day}';
+    if (dateKey != currentDateKey) {
+      out.add(ChildCommDateDivider(_dateLabel(p.createdAt)));
+      currentDateKey = dateKey;
+    }
+    out.add(
+      ChildCommSentPhoto(
+        imageUrls: [p.displayUrl],
+        caption: p.caption ?? '',
+        time: _timeLabel(p.createdAt),
+      ),
+    );
+  }
+  return out;
+}
+
+String _dateLabel(DateTime dt) {
+  return '${dt.year}년 ${dt.month}월 ${dt.day}일';
+}
+
+String _timeLabel(DateTime dt) {
+  final h = dt.hour;
+  final m = dt.minute.toString().padLeft(2, '0');
+  if (h == 0) return '오전 12:$m';
+  if (h < 12) return '오전 $h:$m';
+  if (h == 12) return '오후 12:$m';
+  return '오후 ${h - 12}:$m';
 }
 
 List<Widget> _buildTimelineList({
@@ -119,7 +214,6 @@ class _DateDividerHtml extends StatelessWidget {
   }
 }
 
-/// 자녀가 보낸 사진 행: 사진 줄·캡션 줄, 각각 시간과 말풍선.
 class _MePhotoCaptionBlock extends StatelessWidget {
   const _MePhotoCaptionBlock({
     required this.imageUrls,
@@ -328,7 +422,6 @@ class _PhotoGridHtml extends StatelessWidget {
         ),
       );
     }
-    // 이전 .clamp(48, 72)는 타일을 작게만 두어 버블 오른쪽이 비어 보였음 → 가용 너비의 절반을 씀.
     final s = (innerWidth - gap) / 2;
     final more = n - 4;
     return SizedBox(
