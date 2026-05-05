@@ -3,32 +3,31 @@ library;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
-import 'package:itda/services/photo_upload_service.dart';
 import 'package:itda/shared/widgets/xfile_preview.dart';
 
-class PhotoUploadScreen extends StatefulWidget {
+class PhotoUploadScreen extends ConsumerStatefulWidget {
   const PhotoUploadScreen({super.key, this.onRoleSwitch});
 
   final VoidCallback? onRoleSwitch;
 
   @override
-  State<PhotoUploadScreen> createState() => _PhotoUploadScreenState();
+  ConsumerState<PhotoUploadScreen> createState() => _PhotoUploadScreenState();
 }
 
-class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
+class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
   final _captionCtrl = TextEditingController();
   final _picker = ImagePicker();
-  final _upload = PhotoUploadService();
 
   XFile? _image;
   DateTime? _scheduledAt;
-  bool _sending = false;
 
   @override
   void dispose() {
@@ -120,29 +119,39 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
       return;
     }
 
-    setState(() => _sending = true);
-    final result = await _upload.uploadXFile(
-      file: _image!,
-      caption: _captionCtrl.text.trim().isEmpty ? '(캡션 없음)' : _captionCtrl.text.trim(),
+    final caption = _captionCtrl.text.trim().isEmpty
+        ? null
+        : _captionCtrl.text.trim();
+
+    final result = await uploadChildPhoto(
+      ref: ref,
+      filePath: _image!.path,
+      caption: caption,
       scheduledAt: _scheduledAt,
     );
-    if (!mounted) return;
-    setState(() => _sending = false);
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          result.ok
-              ? '업로드 성공 (${result.statusCode})'
-              : '업로드 실패: ${result.message}',
-        ),
-        backgroundColor: result.ok ? null : ChildDashboardColors.dangerLight,
+        content: Text(result.message),
+        backgroundColor:
+            result.ok ? null : ChildDashboardColors.dangerLight,
       ),
     );
+
+    if (result.ok) {
+      // 성공 시 입력 초기화 — 같은 사진 중복 전송 방지
+      setState(() {
+        _image = null;
+        _scheduledAt = null;
+        _captionCtrl.clear();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final sending = ref.watch(uploadBusyProvider);
     final scheduleText = _scheduledAt == null
         ? '즉시 전송 (예약 없음)'
         : DateFormat('M월 d일 HH:mm 예약').format(_scheduledAt!);
@@ -357,14 +366,14 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: _sending ? null : _uploadPhoto,
+                      onTap: sending ? null : _uploadPhoto,
                       borderRadius: BorderRadius.circular(16),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (_sending)
+                            if (sending)
                               const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -377,7 +386,7 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
                               const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 22),
                             const SizedBox(width: 10),
                             Text(
-                              _sending ? '전송 중…' : '사진 전송하기',
+                              sending ? '전송 중…' : '사진 전송하기',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,

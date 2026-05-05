@@ -1,14 +1,17 @@
-/// 자녀 탭 「홈」 대시보드. 요약 타일·차트·알림·퀘스트 목록을 보여줍니다.
+/// 자녀 탭 「홈」 대시보드. 요약 타일·차트·알림은 데모 데이터 기준이며,
+/// 「오늘의 퀘스트 응답」 섹션은 BE의 `GET /answers/{type}` 데이터를 사용합니다.
 library;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/features/child/dashboard/providers/dashboard_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 
-class ChildHomeScreen extends StatelessWidget {
+class ChildHomeScreen extends ConsumerWidget {
   const ChildHomeScreen({
     super.key,
     this.onOpenHealthTab,
@@ -19,7 +22,9 @@ class ChildHomeScreen extends StatelessWidget {
   final VoidCallback? onRoleSwitch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final todayQuestsAsync = ref.watch(todayQuestsProvider);
+
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
@@ -52,9 +57,9 @@ class ChildHomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                ChildSectionHeader(title: '오늘의 퀘스트 응답'),
+                const ChildSectionHeader(title: '오늘의 퀘스트 응답'),
                 const SizedBox(height: 10),
-                _TodayQuestPanel(quests: MockItdaData.dashboardTodayQuests),
+                _TodayQuestPanel(asyncQuests: todayQuestsAsync),
               ]),
             ),
           ),
@@ -131,8 +136,6 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // SliverList 안의 shrinkWrap GridView는 세로 여백이 비정상적으로 커질 수 있어
-    // 2열 고정 레이아웃은 Row/Column이 안전합니다.
     final chunks = <List<DashboardSummaryTile>>[];
     for (var i = 0; i < tiles.length; i += 2) {
       chunks.add(tiles.sublist(i, i + 2 > tiles.length ? tiles.length : i + 2));
@@ -444,10 +447,11 @@ class _RiskAlertCard extends StatelessWidget {
   }
 }
 
+/// 「오늘의 퀘스트 응답」 — `todayQuestsProvider`의 BE 데이터로 구성.
 class _TodayQuestPanel extends StatelessWidget {
-  const _TodayQuestPanel({required this.quests});
+  const _TodayQuestPanel({required this.asyncQuests});
 
-  final List<DashboardTodayQuest> quests;
+  final AsyncValue<List<TodayQuestStatus>> asyncQuests;
 
   @override
   Widget build(BuildContext context) {
@@ -464,49 +468,100 @@ class _TodayQuestPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: asyncQuests.when(
+        loading: () => const SizedBox(
+          height: 80,
+          child: Center(
+            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+          ),
+        ),
+        error: (e, _) => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            '응답 정보를 불러오지 못했어요.',
+            style: TextStyle(
+              fontSize: 12,
+              color: ChildDashboardColors.textSub,
+            ),
+          ),
+        ),
+        data: (quests) {
+          return Column(
+            children: [
+              for (var i = 0; i < quests.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _TodayQuestRow(quest: quests[i]),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TodayQuestRow extends StatelessWidget {
+  const _TodayQuestRow({required this.quest});
+
+  final TodayQuestStatus quest;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = quest.answerPreview;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ChildDashboardColors.orangePale,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
         children: [
-          for (var i = 0; i < quests.length; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: ChildDashboardColors.orangePale,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      quests[i].q,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: ChildDashboardColors.text,
-                      ),
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  quest.label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: ChildDashboardColors.text,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: quests[i].positive ? ChildDashboardColors.successLight : ChildDashboardColors.dangerLight,
-                      borderRadius: BorderRadius.circular(5),
+                ),
+                if (preview != null && preview.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    preview,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: ChildDashboardColors.textSub,
                     ),
-                    child: Text(
-                      quests[i].positive ? '예' : '아니오',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: quests[i].positive
-                            ? const Color(0xFF3A7D3A)
-                            : const Color(0xFFA32828),
-                      ),
-                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: quest.responded
+                  ? ChildDashboardColors.successLight
+                  : ChildDashboardColors.dangerLight,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(
+              quest.responded ? '응답' : '미응답',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: quest.responded
+                    ? const Color(0xFF3A7D3A)
+                    : const Color(0xFFA32828),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
