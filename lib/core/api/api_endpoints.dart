@@ -22,4 +22,15 @@ abstract final class ApiEndpoints {
 
   /// `GET /photos/history?user_id=...` — 사진 전송 내역 조회
   static const String photosHistory = '/photos/history';
+
+  // ==================== Dementia ====================
+  /// `POST /dementia/analyze` — 음성 답변에 대한 치매 분석 요청
+  static const String dementiaAnalyze = '/dementia/analyze';
+
+  /// `GET /dementia/{analysis_id}` — 분석 결과 단건 조회
+  static String dementiaAnalysisById(String analysisId) =>
+      '/dementia/$analysisId';
+
+  /// `GET /dementia?user_id=...` — 사용자별 분석 이력 조회
+  static const String dementia = '/dementia';
 }
