@@ -8,9 +8,9 @@ import 'package:itda/core/models/quest.dart';
 ///
 /// 백엔드 엔드포인트:
 /// - `GET /questions/{type}` — 오늘의 질문 조회
-/// - `POST /answers/{type}` — 텍스트 답변 저장
+/// - `POST /answers/{type}` — 텍스트(선택형) 답변 저장
 /// - `GET /answers/{type}?user_id=...` — 사용자 답변 목록 조회
-/// - 음성 답변 업로드는 [VoiceService]에서 처리
+/// - 음성 답변 업로드는 부모 영역(현기님 담당)에서 처리
 class QuestService {
   QuestService(this._dio);
 
@@ -26,7 +26,7 @@ class QuestService {
 
   /// 선택형(텍스트) 답변 저장.
   ///
-  /// 음성 답변은 [VoiceService.uploadVoice]에서 처리합니다.
+  /// 음성 답변은 부모 영역(ParentRepository.submitVoice)에서 처리합니다.
   Future<void> submitAnswer({
     required String type,
     required String userId,
@@ -39,6 +39,7 @@ class QuestService {
         'user_id': userId,
         'question_id': questionId,
         'answer': answer,
+        'answer_type': 'choice',
       },
     );
   }

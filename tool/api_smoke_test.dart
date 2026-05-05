@@ -13,14 +13,12 @@ import 'package:dio/dio.dart';
 import 'package:itda/core/api/api_client.dart';
 import 'package:itda/services/photo_api_service.dart';
 import 'package:itda/services/quest_service.dart';
-import 'package:itda/services/voice_upload_service.dart';
 
 Future<void> main() async {
   print('=== ITDA API Smoke Test ===\n');
 
   final Dio dio = ApiClient.create();
   final questService = QuestService(dio);
-  final voiceUploadService = VoiceUploadService(dio);
   final photoApiService = PhotoApiService(dio);
 
   // 1) GET /questions/health
@@ -69,27 +67,7 @@ Future<void> main() async {
     print('    ✗ 실패: $e\n');
   }
 
-  // 4) POST /answers/health/voice
-  try {
-    print('[4] POST /answers/health/voice');
-    const voicePath = 'test_voice.wav';
-    if (!await File(voicePath).exists()) {
-      print('    ⚠ $voicePath 파일이 없습니다.\n');
-    } else {
-      final result = await voiceUploadService.uploadVoice(
-        type: 'health',
-        userId: 'parent_001',
-        questionId: 'q_health_today',
-        filePath: voicePath,
-      );
-      print('    ✓ 성공');
-      print('    answerId         : ${result.answerId}');
-      print('    voiceStatus      : ${result.voiceStatus}');
-      print('    voiceFileKey     : ${result.voiceFileKey}\n');
-    }
-  } catch (e) {
-    print('    ✗ 실패 (S3 키 미설정 시 502 정상): $e\n');
-  }
+  // [4] 음성 업로드는 부모 담당자(현기님) 영역으로 이관됨
 
   // 5) POST /photos
   try {
