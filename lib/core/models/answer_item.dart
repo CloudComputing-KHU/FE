@@ -14,6 +14,7 @@ class AnswerItem {
     this.answer,
     this.voiceStatus,
     this.voiceFileKey,
+    this.voiceUrl,
     this.originalFilename,
     this.storedFilename,
     this.contentType,
@@ -38,6 +39,11 @@ class AnswerItem {
   // 음성 답변 시
   final String? voiceStatus;
   final String? voiceFileKey;
+
+  /// S3 presigned URL — 7일간 유효. 자녀 화면에서 부모 음성 답변을
+  /// 바로 재생할 때 사용.
+  final String? voiceUrl;
+
   final String? originalFilename;
   final String? storedFilename;
   final String? contentType;
@@ -57,6 +63,7 @@ class AnswerItem {
       answer: json['answer'] as String?,
       voiceStatus: json['voice_status'] as String?,
       voiceFileKey: json['voice_file_key'] as String?,
+      voiceUrl: json['voice_url'] as String?,
       originalFilename: json['original_filename'] as String?,
       storedFilename: json['stored_filename'] as String?,
       contentType: json['content_type'] as String?,

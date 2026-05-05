@@ -1,21 +1,26 @@
-/// 자녀 탭 「건강 리포트」. 차트·알림 등은 데모 데이터 기준입니다.
+/// 자녀 탭 「건강 리포트」. 차트·알림 등은 데모 데이터 기준이며,
+/// 「건강 퀘스트 응답」 섹션은 BE의 `GET /answers/health` 데이터를 사용합니다.
 library;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/models/answer_item.dart';
 import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart' show ChildHealthTrendPanel;
+import 'package:itda/features/child/health_monitoring/providers/health_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 
-class HealthMonitoringScreen extends StatelessWidget {
+class HealthMonitoringScreen extends ConsumerWidget {
   const HealthMonitoringScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final trend = MockItdaData.weeklyMoodTrend;
     final alert = MockItdaData.voiceRiskAlert;
+    final answersAsync = ref.watch(parentAnswersProvider('health'));
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -152,49 +157,10 @@ class HealthMonitoringScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 const ChildSectionHeader(title: '건강 퀘스트 응답'),
                 const SizedBox(height: 10),
-                ChildItdaPanel(
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < MockItdaData.questResults.length; i++) ...[
-                        if (i > 0) const Divider(height: 20),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    MockItdaData.questResults[i]['q']!,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                      color: ChildDashboardColors.text,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '응답: ${MockItdaData.questResults[i]['a']}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: ChildDashboardColors.textSub,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              MockItdaData.questResults[i]['date']!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: ChildDashboardColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
+                _ParentAnswersPanel(
+                  answersAsync: answersAsync,
+                  onRetry: () =>
+                      ref.read(parentAnswersProvider('health').notifier).refresh(),
                 ),
                 const SizedBox(height: 18),
                 const ChildSectionHeader(title: 'AI 음성 분석 · 위험 알림'),
@@ -272,6 +238,155 @@ class HealthMonitoringScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "건강 퀘스트 응답" 섹션 — BE의 `GET /answers/health` 결과 표시.
+/// 로딩/에러/빈 목록 상태를 패널 안에서 처리합니다.
+class _ParentAnswersPanel extends StatelessWidget {
+  const _ParentAnswersPanel({
+    required this.answersAsync,
+    required this.onRetry,
+  });
+
+  final AsyncValue<List<AnswerItem>> answersAsync;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChildItdaPanel(
+      child: answersAsync.when(
+        loading: () => const SizedBox(
+          height: 80,
+          child: Center(
+            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+          ),
+        ),
+        error: (e, _) => _ErrorView(onRetry: onRetry),
+        data: (answers) {
+          if (answers.isEmpty) {
+            return const _EmptyView();
+          }
+          return Column(
+            children: [
+              for (var i = 0; i < answers.length; i++) ...[
+                if (i > 0) const Divider(height: 20),
+                _AnswerRow(item: answers[i]),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AnswerRow extends StatelessWidget {
+  const _AnswerRow({required this.item});
+
+  final AnswerItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final question = _questionLabel(item.type);
+    final answerText = item.isVoice ? '🎤 음성 답변' : (item.answer ?? '(빈 답변)');
+    final dateLabel = '${item.createdAt.month}/${item.createdAt.day}';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                question,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: ChildDashboardColors.text,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '응답: $answerText',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: ChildDashboardColors.textSub,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          dateLabel,
+          style: const TextStyle(
+            fontSize: 11,
+            color: ChildDashboardColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _questionLabel(String type) {
+    switch (type) {
+      case 'meal':
+        return '식사 관련 질문';
+      case 'mood':
+        return '기분 관련 질문';
+      case 'health':
+      default:
+        return '건강 관련 질문';
+    }
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        children: [
+          const Text(
+            '답변을 불러오지 못했어요.',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: ChildDashboardColors.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        '아직 부모님의 답변이 없어요.',
+        style: TextStyle(
+          fontSize: 13,
+          color: ChildDashboardColors.textSub,
+        ),
       ),
     );
   }
