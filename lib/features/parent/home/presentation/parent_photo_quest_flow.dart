@@ -476,7 +476,11 @@ class _ReactionPane extends StatelessWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => HealthVoiceRecordSheet.show(context),
+                onTap: () => HealthVoiceRecordSheet.show(
+                  context,
+                  questionId: 'photo_voice',
+                  questionType: 'health',
+                ),
                 borderRadius: BorderRadius.circular(18),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),

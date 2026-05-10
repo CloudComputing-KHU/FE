@@ -3,17 +3,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:itda/core/theme/app_colors.dart';
-import 'package:itda/services/voice_analysis.dart';
+import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/services/voice_service.dart';
 
 /// 건강 질문 화면 — 「목소리로 답하기」 시 올라오는 녹음 바텀시트
-class HealthVoiceRecordSheet extends StatefulWidget {
-  const HealthVoiceRecordSheet({super.key});
+class HealthVoiceRecordSheet extends ConsumerStatefulWidget {
+  const HealthVoiceRecordSheet({
+    super.key,
+    required this.questionId,
+    required this.questionType,
+  });
 
-  static Future<void> show(BuildContext context) {
+  final String questionId;
+  final String questionType;
+
+  static Future<void> show(
+    BuildContext context, {
+    required String questionId,
+    String? questionType,
+  }) {
+    final type = questionType ?? 'health';
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -21,15 +34,19 @@ class HealthVoiceRecordSheet extends StatefulWidget {
       barrierColor: Colors.black54,
       isDismissible: true,
       enableDrag: true,
-      builder: (ctx) => const HealthVoiceRecordSheet(),
+      builder: (ctx) => HealthVoiceRecordSheet(
+        questionId: questionId,
+        questionType: type,
+      ),
     );
   }
 
   @override
-  State<HealthVoiceRecordSheet> createState() => _HealthVoiceRecordSheetState();
+  ConsumerState<HealthVoiceRecordSheet> createState() =>
+      _HealthVoiceRecordSheetState();
 }
 
-class _HealthVoiceRecordSheetState extends State<HealthVoiceRecordSheet>
+class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
     with SingleTickerProviderStateMixin {
   final _voice = VoiceService();
   late final AnimationController _waveCtrl;
@@ -120,9 +137,18 @@ class _HealthVoiceRecordSheetState extends State<HealthVoiceRecordSheet>
     if (!mounted) return;
     setState(() => _recording = false);
     if (path != null) {
-      final r = await triggerVoiceAnalysisUploadFromPath(path);
+      final ok = await submitParentVoice(
+        ref: ref,
+        type: widget.questionType,
+        questionId: widget.questionId,
+        filePath: path,
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? '음성 답변이 전송됐어요!' : '전송에 실패했어요. 다시 시도해 주세요.'),
+        ),
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('녹음 파일을 저장하지 못했어요.')),
