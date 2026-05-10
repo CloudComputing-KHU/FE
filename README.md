@@ -42,7 +42,7 @@ $ flutter pub get
 # 4. 프로젝트 실행 (안드로이드 에뮬레이터 기준)
 $ flutter run
 ````
-
+/home/sohegi
 <br>
 
 ## 📁 폴더 구조 (Folder Structure)
