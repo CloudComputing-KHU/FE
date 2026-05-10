@@ -1,21 +1,28 @@
-/// 자녀 탭 「건강 리포트」. 차트·알림 등은 데모 데이터 기준입니다.
+/// 자녀 탭 「건강 리포트」. 차트는 데모 데이터 기준이며,
+/// 「건강 퀘스트 응답」은 `GET /answers/health`,
+/// 「AI 음성 분석 · 위험 알림」은 `GET /dementia?user_id=...` 데이터를 사용합니다.
 library;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/models/answer_item.dart';
+import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart' show ChildHealthTrendPanel;
+import 'package:itda/features/child/health_monitoring/providers/health_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 
-class HealthMonitoringScreen extends StatelessWidget {
+class HealthMonitoringScreen extends ConsumerWidget {
   const HealthMonitoringScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final trend = MockItdaData.weeklyMoodTrend;
-    final alert = MockItdaData.voiceRiskAlert;
+    final answersAsync = ref.watch(parentAnswersProvider('health'));
+    final dementiaAsync = ref.watch(parentDementiaHistoryProvider);
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -152,126 +159,410 @@ class HealthMonitoringScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 const ChildSectionHeader(title: '건강 퀘스트 응답'),
                 const SizedBox(height: 10),
-                ChildItdaPanel(
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < MockItdaData.questResults.length; i++) ...[
-                        if (i > 0) const Divider(height: 20),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    MockItdaData.questResults[i]['q']!,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                      color: ChildDashboardColors.text,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '응답: ${MockItdaData.questResults[i]['a']}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: ChildDashboardColors.textSub,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              MockItdaData.questResults[i]['date']!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: ChildDashboardColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
+                _ParentAnswersPanel(
+                  answersAsync: answersAsync,
+                  onRetry: () =>
+                      ref.read(parentAnswersProvider('health').notifier).refresh(),
                 ),
                 const SizedBox(height: 18),
                 const ChildSectionHeader(title: 'AI 음성 분석 · 위험 알림'),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: ChildDashboardColors.dangerLight.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: ChildDashboardColors.danger.withValues(alpha: 0.25),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ChildDashboardColors.orange.withValues(alpha: 0.06),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.health_and_safety_rounded, color: ChildDashboardColors.danger, size: 22),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: ChildDashboardColors.danger.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              alert['level']!,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                                color: ChildDashboardColors.danger,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        alert['title']!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: ChildDashboardColors.text,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        alert['body']!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.45,
-                          color: ChildDashboardColors.textSub,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '데모: 음성 분석 → 요약 → 보호자 알림(파이프라인 예시)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: ChildDashboardColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
+                _DementiaAlertPanel(
+                  asyncHistory: dementiaAsync,
+                  onRetry: () =>
+                      ref.read(parentDementiaHistoryProvider.notifier).refresh(),
                 ),
               ]),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "건강 퀘스트 응답" 섹션 — BE의 `GET /answers/health` 결과 표시.
+class _ParentAnswersPanel extends StatelessWidget {
+  const _ParentAnswersPanel({
+    required this.answersAsync,
+    required this.onRetry,
+  });
+
+  final AsyncValue<List<AnswerItem>> answersAsync;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChildItdaPanel(
+      child: answersAsync.when(
+        loading: () => const SizedBox(
+          height: 80,
+          child: Center(
+            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+          ),
+        ),
+        error: (e, _) => _ErrorView(onRetry: onRetry),
+        data: (answers) {
+          if (answers.isEmpty) {
+            return const _EmptyView(message: '아직 부모님의 답변이 없어요.');
+          }
+          return Column(
+            children: [
+              for (var i = 0; i < answers.length; i++) ...[
+                if (i > 0) const Divider(height: 20),
+                _AnswerRow(item: answers[i]),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AnswerRow extends StatelessWidget {
+  const _AnswerRow({required this.item});
+
+  final AnswerItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final question = _questionLabel(item.type);
+    final answerText = item.isVoice ? '🎤 음성 답변' : (item.answer ?? '(빈 답변)');
+    final dateLabel = '${item.createdAt.month}/${item.createdAt.day}';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                question,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: ChildDashboardColors.text,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '응답: $answerText',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: ChildDashboardColors.textSub,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          dateLabel,
+          style: const TextStyle(
+            fontSize: 11,
+            color: ChildDashboardColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _questionLabel(String type) {
+    switch (type) {
+      case 'meal':
+        return '식사 관련 질문';
+      case 'mood':
+        return '기분 관련 질문';
+      case 'health':
+      default:
+        return '건강 관련 질문';
+    }
+  }
+}
+
+/// "AI 음성 분석 · 위험 알림" 섹션 — `GET /dementia?user_id=` 결과 중
+/// 가장 최근 항목을 강조해 표시. 분석이 진행 중이거나 결과가 없으면
+/// 안내 메시지를 보여줍니다.
+class _DementiaAlertPanel extends StatelessWidget {
+  const _DementiaAlertPanel({
+    required this.asyncHistory,
+    required this.onRetry,
+  });
+
+  final AsyncValue<List<DementiaAnalysisItem>> asyncHistory;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return asyncHistory.when(
+      loading: () => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _decoration(highlight: false),
+        child: const SizedBox(
+          height: 60,
+          child: Center(
+            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+          ),
+        ),
+      ),
+      error: (e, _) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _decoration(highlight: false),
+        child: _ErrorView(onRetry: onRetry),
+      ),
+      data: (items) {
+        if (items.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: _decoration(highlight: false),
+            child: const _EmptyView(
+              message: '아직 분석된 음성 기록이 없어요.\n부모님의 음성 답변이 도착하면 AI 분석 결과가 여기에 표시됩니다.',
+            ),
+          );
+        }
+        // 최신 항목 1개를 메인으로 강조
+        final latest = items.first;
+        return _LatestAnalysisCard(item: latest, totalCount: items.length);
+      },
+    );
+  }
+
+  static BoxDecoration _decoration({required bool highlight}) {
+    return BoxDecoration(
+      color: highlight
+          ? ChildDashboardColors.dangerLight.withValues(alpha: 0.65)
+          : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: highlight
+          ? Border.all(
+              color: ChildDashboardColors.danger.withValues(alpha: 0.25),
+            )
+          : null,
+      boxShadow: [
+        BoxShadow(
+          color: ChildDashboardColors.orange.withValues(alpha: 0.06),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+}
+
+class _LatestAnalysisCard extends StatelessWidget {
+  const _LatestAnalysisCard({
+    required this.item,
+    required this.totalCount,
+  });
+
+  final DementiaAnalysisItem item;
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final risk = item.riskLevel ?? RiskLevel.unknown;
+    final isDanger = risk == RiskLevel.high || risk == RiskLevel.medium;
+    
+    final dateLabel = _formatDate(item.completedAt ?? item.createdAt);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDanger
+            ? ChildDashboardColors.dangerLight.withValues(alpha: 0.65)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isDanger
+            ? Border.all(
+                color: ChildDashboardColors.danger.withValues(alpha: 0.25),
+              )
+            : Border.all(
+                color: ChildDashboardColors.orange.withValues(alpha: 0.15),
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: ChildDashboardColors.orange.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.health_and_safety_rounded,
+                color: isDanger
+                    ? ChildDashboardColors.danger
+                    : ChildDashboardColors.orange,
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDanger
+                      ? ChildDashboardColors.danger.withValues(alpha: 0.12)
+                      : ChildDashboardColors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  risk.koreanLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: isDanger
+                        ? ChildDashboardColors.danger
+                        : ChildDashboardColors.orangeDark,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                dateLabel,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: ChildDashboardColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '음성·발화 패턴 분석 결과',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: ChildDashboardColors.text,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _summaryFor(item.status, risk, item.riskScore),
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: ChildDashboardColors.textSub,
+            ),
+          ),
+          if (totalCount > 1) ...[
+            const SizedBox(height: 10),
+            Text(
+              '총 $totalCount건의 분석 이력',
+              style: const TextStyle(
+                fontSize: 10,
+                color: ChildDashboardColors.textMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _statusKorean(DementiaAnalysisStatus s) {
+    switch (s) {
+      case DementiaAnalysisStatus.pending:
+        return '대기 중';
+      case DementiaAnalysisStatus.transcribing:
+        return '음성 변환 중';
+      case DementiaAnalysisStatus.transcribed:
+        return '변환 완료';
+      case DementiaAnalysisStatus.analyzing:
+        return '분석 중';
+      case DementiaAnalysisStatus.completed:
+        return '완료';
+      case DementiaAnalysisStatus.failed:
+        return '실패';
+      case DementiaAnalysisStatus.unknown:
+        return '미정';
+    }
+  }
+
+  static String _summaryFor(
+    DementiaAnalysisStatus status,
+    RiskLevel risk,
+    double? score,
+  ) {
+    if (status.isInProgress) {
+      return '${_statusKorean(status)} — 분석이 끝나면 결과가 여기에 표시됩니다.';
+    }
+    if (status == DementiaAnalysisStatus.failed) {
+      return '분석 처리 중 오류가 발생했어요. 음성 답변이 도착하면 다시 시도됩니다.';
+    }
+    if (status == DementiaAnalysisStatus.completed) {
+      final scoreText = score != null
+          ? ' (점수 ${(score * 100).toStringAsFixed(0)}/100)'
+          : '';
+      switch (risk) {
+        case RiskLevel.low:
+          return '발화 패턴이 안정적입니다$scoreText.';
+        case RiskLevel.medium:
+          return '주의 깊게 관찰이 필요한 패턴이 감지됐어요$scoreText. 정기적인 대화·검진을 권장합니다.';
+        case RiskLevel.high:
+          return '즉각적인 확인이 권장되는 패턴이에요$scoreText. 가능한 빨리 부모님과 대화해 보세요.';
+        case RiskLevel.unknown:
+          return '분석은 완료됐지만 위험 단계가 판정되지 않았어요.';
+      }
+    }
+    return '분석 결과를 확인 중입니다.';
+  }
+
+  static String _formatDate(DateTime dt) {
+    return '${dt.month}/${dt.day}';
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        children: [
+          const Text(
+            '데이터를 불러오지 못했어요.',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: ChildDashboardColors.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          color: ChildDashboardColors.textSub,
+          height: 1.5,
+        ),
       ),
     );
   }
