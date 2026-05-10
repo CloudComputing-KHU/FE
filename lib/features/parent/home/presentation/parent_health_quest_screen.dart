@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/features/parent/home/presentation/health_voice_record_sheet.dart';
+import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/shared/widgets/round_white_icon_button.dart';
 
 const _pText = Color(0xFF2D1F0A);
@@ -13,7 +14,7 @@ const _greenText = Color(0xFF2D5A2D);
 /// 부모 홈의 건강 질문 카드와 동일한 내용을 전체 화면으로 표시
 ///
 /// [stepIndex] 0=건강, 1=식사, 2=기분, 3 이상=오늘 모두 완료(조회만)
-class ParentHealthQuestScreen extends StatelessWidget {
+class ParentHealthQuestScreen extends ConsumerWidget {
   /// [onAnswered] 생략 시 빠른 답변 후 추가 동작 없음 (no-op).
   factory ParentHealthQuestScreen({
     Key? key,
@@ -35,106 +36,33 @@ class ParentHealthQuestScreen extends StatelessWidget {
 
   static void _noopOnAnswered(String _) {}
 
-  /// 현재 퀘스트 단계 (홈 카드 `_healthQuestCompleted`와 동기)
+  /// 현재 퀘스트 단계 (홈 카드 `healthQuestStepProvider`와 동기)
   final int stepIndex;
 
   /// 빠른 답변 선택 후 호출
   final ValueChanged<String> onAnswered;
 
-  void _pickQuick(BuildContext context, String summary) {
+  void _pickQuick(BuildContext context, WidgetRef ref, String summary,
+      String questionId) async {
+    final type = questTypeForStep(stepIndex);
+    final ok = await submitParentAnswer(
+      ref: ref,
+      type: type,
+      questionId: questionId,
+      answer: summary,
+    );
+    if (!context.mounted) return;
     Navigator.of(context).pop();
     onAnswered(summary);
-  }
-
-  Future<void> _openVoice(BuildContext context) {
-    return HealthVoiceRecordSheet.show(context);
-  }
-
-  static List<_QuestQuickSpec> _quickSpecsForStep(int step) {
-    switch (step.clamp(0, 2)) {
-      case 1:
-        return const [
-          _QuestQuickSpec(
-            summary: '네, 잘 먹었어요',
-            label: '네, 잘\n먹었어요',
-            borderColor: _greenBorder,
-            textColor: _greenText,
-          ),
-          _QuestQuickSpec(
-            summary: '아직 안 먹었어요',
-            label: '아직 안\n먹었어요',
-            borderColor: ItdaColors.danger,
-            textColor: ItdaColors.danger,
-          ),
-          _QuestQuickSpec(
-            summary: '간단히 먹었어요',
-            label: '간단히\n먹었어요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-          _QuestQuickSpec(
-            summary: '기억이 안 나요',
-            label: '기억이 안\n나요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-        ];
-      case 2:
-        return const [
-          _QuestQuickSpec(
-            summary: '좋아요',
-            label: '좋아요',
-            borderColor: _greenBorder,
-            textColor: _greenText,
-          ),
-          _QuestQuickSpec(
-            summary: '괜찮아요',
-            label: '괜찮아요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-          _QuestQuickSpec(
-            summary: '좀 피곤해요',
-            label: '좀\n피곤해요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-          _QuestQuickSpec(
-            summary: '안 좋아요',
-            label: '안 좋아요',
-            borderColor: ItdaColors.danger,
-            textColor: ItdaColors.danger,
-          ),
-        ];
-      case 0:
-      default:
-        return const [
-          _QuestQuickSpec(
-            summary: '네, 먹었어요',
-            label: '네, 먹었어요',
-            borderColor: _greenBorder,
-            textColor: _greenText,
-          ),
-          _QuestQuickSpec(
-            summary: '아직 안 먹었어요',
-            label: '아직 안\n먹었어요',
-            borderColor: ItdaColors.danger,
-            textColor: ItdaColors.danger,
-          ),
-          _QuestQuickSpec(
-            summary: '약이 없어요',
-            label: '약이 없어요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-          _QuestQuickSpec(
-            summary: '기억이 안 나요',
-            label: '기억이 안\n나요',
-            borderColor: ItdaColors.border,
-            textColor: _pText,
-          ),
-        ];
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('답변 저장에 실패했어요. 다시 시도해 주세요.')),
+      );
     }
+  }
+
+  Future<void> _openVoice(BuildContext context, String questionId) {
+    return HealthVoiceRecordSheet.show(context, questionId: questionId);
   }
 
   static String _appBarTitleForStep(int step) {
@@ -149,20 +77,20 @@ class ParentHealthQuestScreen extends StatelessWidget {
     }
   }
 
-  static String _questionForStep(int step) {
-    switch (step.clamp(0, 2)) {
+  /// API 실패 시 표시할 폴백 질문 텍스트
+  static String _fallbackQuestionText(int step) {
+    switch (step) {
       case 1:
-        return MockItdaData.parentHomeQuestQuestionMeal;
+        return '오늘 식사는\n잘 하셨어요?';
       case 2:
-        return MockItdaData.parentHomeQuestQuestionMood;
-      case 0:
+        return '오늘 기분은\n어떠세요?';
       default:
-        return MockItdaData.parentHomeQuestQuestion;
+        return '오늘 약은\n드셨어요?';
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     if (stepIndex >= 3) {
@@ -249,9 +177,12 @@ class ParentHealthQuestScreen extends StatelessWidget {
     }
 
     final step = stepIndex.clamp(0, 2);
+    final type = questTypeForStep(step);
     final appBarTitle = _appBarTitleForStep(step);
-    final question = _questionForStep(step);
     final quicks = _quickSpecsForStep(step);
+
+    // API에서 질문 텍스트를 가져옵니다.
+    final questionAsync = ref.watch(questionProvider(type));
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
@@ -300,15 +231,31 @@ class ParentHealthQuestScreen extends StatelessWidget {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minHeight: constraints.maxHeight),
                       child: Center(
-                        child: Text(
-                          question,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 44,
-                            fontWeight: FontWeight.w900,
-                            height: 1.3,
-                            color: _pText,
-                            letterSpacing: -0.8,
+                        child: questionAsync.when(
+                          loading: () => const CircularProgressIndicator(
+                            color: ItdaColors.orange,
+                          ),
+                          error: (_, __) => Text(
+                            _fallbackQuestionText(step),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 44,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                              color: _pText,
+                              letterSpacing: -0.8,
+                            ),
+                          ),
+                          data: (q) => Text(
+                            q.text,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 44,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                              color: _pText,
+                              letterSpacing: -0.8,
+                            ),
                           ),
                         ),
                       ),
@@ -337,7 +284,10 @@ class ParentHealthQuestScreen extends StatelessWidget {
                       Expanded(
                         child: _QuickReplyCell(
                           borderColor: quicks[0].borderColor,
-                          onTap: () => _pickQuick(context, quicks[0].summary),
+                          onTap: () {
+                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            _pickQuick(context, ref, quicks[0].summary, qId);
+                          },
                           child: Text(
                             quicks[0].label,
                             textAlign: TextAlign.center,
@@ -354,7 +304,10 @@ class ParentHealthQuestScreen extends StatelessWidget {
                       Expanded(
                         child: _QuickReplyCell(
                           borderColor: quicks[1].borderColor,
-                          onTap: () => _pickQuick(context, quicks[1].summary),
+                          onTap: () {
+                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            _pickQuick(context, ref, quicks[1].summary, qId);
+                          },
                           child: Text(
                             quicks[1].label,
                             textAlign: TextAlign.center,
@@ -376,7 +329,10 @@ class ParentHealthQuestScreen extends StatelessWidget {
                       Expanded(
                         child: _QuickReplyCell(
                           borderColor: quicks[2].borderColor,
-                          onTap: () => _pickQuick(context, quicks[2].summary),
+                          onTap: () {
+                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            _pickQuick(context, ref, quicks[2].summary, qId);
+                          },
                           child: Text(
                             quicks[2].label,
                             textAlign: TextAlign.center,
@@ -393,7 +349,10 @@ class ParentHealthQuestScreen extends StatelessWidget {
                       Expanded(
                         child: _QuickReplyCell(
                           borderColor: quicks[3].borderColor,
-                          onTap: () => _pickQuick(context, quicks[3].summary),
+                          onTap: () {
+                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            _pickQuick(context, ref, quicks[3].summary, qId);
+                          },
                           child: Text(
                             quicks[3].label,
                             textAlign: TextAlign.center,
@@ -424,7 +383,10 @@ class ParentHealthQuestScreen extends StatelessWidget {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => _openVoice(context),
+                        onTap: () {
+                          final qId = questionAsync.valueOrNull?.questionId ?? type;
+                          _openVoice(context, qId);
+                        },
                         borderRadius: BorderRadius.circular(18),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 18),
@@ -465,6 +427,95 @@ class ParentHealthQuestScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ── 파일 레벨 헬퍼 ─────────────────────────────────────────────────────────
+
+List<_QuestQuickSpec> _quickSpecsForStep(int step) {
+  switch (step.clamp(0, 2)) {
+    case 1:
+      return const [
+        _QuestQuickSpec(
+          summary: '네, 잘 먹었어요',
+          label: '네, 잘\n먹었어요',
+          borderColor: _greenBorder,
+          textColor: _greenText,
+        ),
+        _QuestQuickSpec(
+          summary: '아직 안 먹었어요',
+          label: '아직 안\n먹었어요',
+          borderColor: ItdaColors.danger,
+          textColor: ItdaColors.danger,
+        ),
+        _QuestQuickSpec(
+          summary: '간단히 먹었어요',
+          label: '간단히\n먹었어요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+        _QuestQuickSpec(
+          summary: '기억이 안 나요',
+          label: '기억이 안\n나요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+      ];
+    case 2:
+      return const [
+        _QuestQuickSpec(
+          summary: '좋아요',
+          label: '좋아요',
+          borderColor: _greenBorder,
+          textColor: _greenText,
+        ),
+        _QuestQuickSpec(
+          summary: '괜찮아요',
+          label: '괜찮아요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+        _QuestQuickSpec(
+          summary: '좀 피곤해요',
+          label: '좀\n피곤해요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+        _QuestQuickSpec(
+          summary: '안 좋아요',
+          label: '안 좋아요',
+          borderColor: ItdaColors.danger,
+          textColor: ItdaColors.danger,
+        ),
+      ];
+    case 0:
+    default:
+      return const [
+        _QuestQuickSpec(
+          summary: '네, 먹었어요',
+          label: '네, 먹었어요',
+          borderColor: _greenBorder,
+          textColor: _greenText,
+        ),
+        _QuestQuickSpec(
+          summary: '아직 안 먹었어요',
+          label: '아직 안\n먹었어요',
+          borderColor: ItdaColors.danger,
+          textColor: ItdaColors.danger,
+        ),
+        _QuestQuickSpec(
+          summary: '약이 없어요',
+          label: '약이 없어요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+        _QuestQuickSpec(
+          summary: '기억이 안 나요',
+          label: '기억이 안\n나요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
+        ),
+      ];
   }
 }
 

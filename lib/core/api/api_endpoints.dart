@@ -1,16 +1,28 @@
+import 'package:flutter/foundation.dart';
+
 /// REST API 베이스 URL·경로 상수 (환경별로 분리 가능)
 abstract final class ApiEndpoints {
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://api.example.com',
-  );
+  /// 실행 시 --dart-define=API_BASE_URL=https://... 로 주입하면 우선 적용됩니다.
+  /// 주입하지 않으면 플랫폼에 따라 자동 선택됩니다.
+  ///   - Android 에뮬레이터 : http://10.0.2.2:8000
+  ///   - 그 외 (웹·iOS·데스크톱) : http://localhost:8000
+  static const _injected = String.fromEnvironment('API_BASE_URL');
+
+  static String get baseUrl {
+    if (_injected.isNotEmpty) return _injected;
+    // Android 에뮬레이터에서 호스트 PC의 localhost는 10.0.2.2 로 접근합니다.
+    if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
+  }
 
   // ==================== Questions ====================
-  /// `GET /questions/{type}` — 오늘의 질문 조회
+  /// `GET /questions/{type}` — 오늘의 질문 조회 (type: health | meal | mood)
   static String questions(String type) => '/questions/$type';
 
   // ==================== Answers ====================
-  /// `GET /answers/{type}?user_id=...` 또는 `POST /answers/{type}`
+  /// `POST /answers/{type}` 또는 `GET /answers/{type}?user_id=...`
   static String answers(String type) => '/answers/$type';
 
   /// `POST /answers/{type}/voice` — 음성 답변 업로드 (multipart)
@@ -19,6 +31,9 @@ abstract final class ApiEndpoints {
   // ==================== Photos ====================
   /// `POST /photos` — 사진 전송 (multipart)
   static const String photos = '/photos';
+
+  /// `GET /photos/received?user_id=...` — 부모가 받은 사진 목록
+  static const String receivedPhotos = '/photos/received';
 
   /// `GET /photos/history?user_id=...` — 사진 전송 내역 조회
   static const String photosHistory = '/photos/history';
