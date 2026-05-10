@@ -178,14 +178,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                             onTap: () => _pick(ImageSource.gallery),
                             child: Container(
                               decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    ChildDashboardColors.orangeLight,
-                                    Color(0xFFFAC775),
-                                  ],
-                                ),
+                                color: ChildDashboardColors.orangeLight,
                               ),
                               child: const Center(
                                 child: Column(
@@ -347,14 +340,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        ChildDashboardColors.orange,
-                        ChildDashboardColors.orangeMid,
-                      ],
-                    ),
+                    color: ChildDashboardColors.orange,
                     boxShadow: [
                       BoxShadow(
                         color: ChildDashboardColors.orange.withValues(alpha: 0.35),

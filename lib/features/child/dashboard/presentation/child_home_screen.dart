@@ -52,7 +52,7 @@ class ChildHomeScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 ChildSectionHeader(
                   title: '오늘의 건강 요약',
-                  trailing: '자세히 →',
+                  trailing: '자세히',
                   onTrailing: onOpenHealthTab,
                 ),
                 const SizedBox(height: 10),
@@ -60,7 +60,7 @@ class ChildHomeScreen extends ConsumerWidget {
                 const SizedBox(height: 18),
                 ChildSectionHeader(
                   title: '위험 알림',
-                  trailing: '모두 보기 →',
+                  trailing: '모두 보기',
                   onTrailing: onOpenHealthTab,
                 ),
                 const SizedBox(height: 10),
@@ -120,11 +120,7 @@ class _GreetingCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [ChildDashboardColors.orange, ChildDashboardColors.orangeMid],
-        ),
+        color: ChildDashboardColors.orange,
         boxShadow: [
           BoxShadow(
             color: ChildDashboardColors.orange.withValues(alpha: 0.25),

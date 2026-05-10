@@ -30,6 +30,7 @@ class _ChildShellState extends State<ChildShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       appBar: null,
       body: IndexedStack(
         index: _index,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:itda/core/theme/app_colors.dart';
 
@@ -43,7 +44,7 @@ class _ItdaBrandMarkPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// 자녀: 알림·설정·역할 / 부모: 큰 로고·역할만
+/// 자녀: 알림·역할 전환 / 부모: 큰 로고·역할만
 ///
 /// [centerTitle]이 있으면(자녀 탭) 로고 대신 가운데 제목만 표시합니다.
 class ItdaShellHeader extends StatelessWidget {
@@ -61,7 +62,7 @@ class ItdaShellHeader extends StatelessWidget {
   /// 자녀 앱에서 탭별 가운데 제목(예: 소통, 건강 리포트).
   final String? centerTitle;
 
-  /// `false`면 알림·설정·역할 전환 버튼을 숨깁니다(가운데 제목 헤더용).
+  /// `false`면 알림·역할 전환 버튼을 숨깁니다(가운데 제목 헤더용).
   final bool showChildActions;
 
   @override
@@ -74,29 +75,25 @@ class ItdaShellHeader extends StatelessWidget {
     final iconSz = isParent ? 22.0 : 20.0;
     final headerPad = EdgeInsets.fromLTRB(22, top + 14, 22, 8);
 
+    const headerIconTint = Color(0xFF8D8C8D);
+
     final trailing = <Widget>[
-      if (!isParent) ...[
+      if (!isParent)
         _HeaderIconBtn(
           size: iconBox,
           iconSize: iconSz,
-          icon: Icons.notifications_outlined,
+          svgAsset: 'assets/icons/notification.svg',
+          iconTint: headerIconTint,
           showDot: true,
           onTap: () {},
         ),
-        const SizedBox(width: 8),
-        _HeaderIconBtn(
-          size: iconBox,
-          iconSize: iconSz,
-          icon: Icons.settings_outlined,
-          onTap: () {},
-        ),
-      ],
       if (onRoleSwitch != null) ...[
         const SizedBox(width: 8),
         _HeaderIconBtn(
           size: iconBox,
           iconSize: iconSz,
-          icon: Icons.swap_horiz_rounded,
+          svgAsset: 'assets/icons/switch.svg',
+          iconTint: headerIconTint,
           onTap: onRoleSwitch,
         ),
       ],
@@ -202,14 +199,16 @@ class _HeaderIconBtn extends StatelessWidget {
   const _HeaderIconBtn({
     required this.size,
     required this.iconSize,
-    required this.icon,
+    required this.svgAsset,
+    required this.iconTint,
     this.showDot = false,
     this.onTap,
   });
 
   final double size;
   final double iconSize;
-  final IconData icon;
+  final String svgAsset;
+  final Color iconTint;
   final bool showDot;
   final VoidCallback? onTap;
 
@@ -238,7 +237,14 @@ class _HeaderIconBtn extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Center(child: Icon(icon, size: iconSize, color: ItdaColors.textSub)),
+              Center(
+                child: SvgPicture.asset(
+                  svgAsset,
+                  width: iconSize,
+                  height: iconSize,
+                  colorFilter: ColorFilter.mode(iconTint, BlendMode.srcIn),
+                ),
+              ),
               if (showDot)
                 Positioned(
                   top: 8,
@@ -293,13 +299,26 @@ class ItdaSectionHeader extends StatelessWidget {
           if (trailing != null)
             GestureDetector(
               onTap: onTrailing,
-              child: Text(
-                trailing!,
-                style: TextStyle(
-                  fontSize: titleSize > 16 ? 13 : 11,
-                  fontWeight: FontWeight.w700,
-                  color: ItdaColors.orange,
-                ),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trailing!,
+                    style: TextStyle(
+                      fontSize: titleSize > 16 ? 13 : 11,
+                      fontWeight: FontWeight.w700,
+                      color: ItdaColors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SvgPicture.asset(
+                    'assets/icons/chevron_right.svg',
+                    width: 14,
+                    height: 14,
+                    colorFilter: const ColorFilter.mode(ItdaColors.orange, BlendMode.srcIn),
+                  ),
+                ],
               ),
             ),
         ],
