@@ -2,14 +2,11 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/theme/app_colors.dart';
-import 'package:itda/features/parent/data/parent_models.dart';
 import 'package:itda/features/parent/home/presentation/parent_health_quest_screen.dart';
 import 'package:itda/features/parent/home/presentation/parent_photo_quest_flow.dart';
-import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/features/parent/menu/presentation/parent_settings_screen.dart';
 import 'package:itda/features/parent/menu/presentation/past_photos_screen.dart';
 
@@ -19,16 +16,18 @@ const _pTextSub = Color(0xFF6B4F2A);
 /// 퀘스트 완료 상태 카드 강조색.
 const _questSuccessGreen = Color(0xFF3A7D3A);
 
-class ParentHomeScreen extends ConsumerStatefulWidget {
+class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
 
   @override
-  ConsumerState<ParentHomeScreen> createState() => _ParentHomeScreenState();
+  State<ParentHomeScreen> createState() => _ParentHomeScreenState();
 }
 
-class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
-    with SingleTickerProviderStateMixin {
+class _ParentHomeScreenState extends State<ParentHomeScreen> with SingleTickerProviderStateMixin {
+  late List<ParentPendingPhoto> _photos;
   AnimationController? _pulseCtrl;
+  /// 오늘 건강·퀘스트 답변 완료 수 (0~3), 카드 상태 UI용
+  int _healthQuestCompleted = 0;
 
   void _initPulse() {
     _pulseCtrl?.dispose();
@@ -41,6 +40,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   @override
   void initState() {
     super.initState();
+    _photos = List<ParentPendingPhoto>.from(MockItdaData.pendingPhotos);
     _initPulse();
   }
 
@@ -56,23 +56,10 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
   }
 
-  Future<void> _openPhoto(ParentReceivedPhoto photo,
-      List<ParentReceivedPhoto> photos) async {
-    if (photos.isEmpty) return;
-    final queue = photos
-        .map(
-          (p) => ParentPendingPhoto(
-            id: p.photoId,
-            imageUrl: p.displayUrl,
-            caption: p.caption ?? '',
-            arrivedAt: _relativeTime(p.createdAt),
-            dateLabel: _dateLabel(p.createdAt),
-            isNew: true,
-          ),
-        )
-        .toList();
-    final idx =
-        queue.indexWhere((p) => p.id == photo.photoId).clamp(0, queue.length - 1);
+  Future<void> _openPhoto(ParentPendingPhoto photo) async {
+    if (_photos.isEmpty) return;
+    final queue = List<ParentPendingPhoto>.from(_photos);
+    final idx = queue.indexWhere((p) => p.id == photo.id).clamp(0, queue.length - 1);
     final removedIds = await Navigator.of(context).push<Set<String>?>(
       MaterialPageRoute<Set<String>?>(
         builder: (_) => ParentPhotoQuestFlow(photos: queue, initialIndex: idx),
@@ -80,7 +67,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
     if (!mounted) return;
     if (removedIds != null && removedIds.isNotEmpty) {
-      ref.read(receivedPhotosProvider.notifier).removeByIds(removedIds);
+      setState(() => _photos.removeWhere((p) => removedIds.contains(p.id)));
     }
   }
 
@@ -91,13 +78,17 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   }
 
   void _openHealthQuest() {
-    final step = ref.read(healthQuestStepProvider);
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ParentHealthQuestScreen(
-          stepIndex: step,
+          stepIndex: _healthQuestCompleted,
           onAnswered: (summary) {
             if (!mounted) return;
+            setState(() {
+              if (_healthQuestCompleted < 3) {
+                _healthQuestCompleted++;
+              }
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('「$summary」로 응답했어요.')),
             );
@@ -107,10 +98,12 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
   }
 
+  ParentPendingPhoto? get _firstPhoto => _photos.isEmpty ? null : _photos.first;
+
   @override
   Widget build(BuildContext context) {
-    final photosAsync = ref.watch(receivedPhotosProvider);
-    final healthQuestCompleted = ref.watch(healthQuestStepProvider);
+    final photoCount = _photos.length;
+    final hasPhoto = _firstPhoto != null;
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
@@ -128,42 +121,19 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
                 child: Column(
                   children: [
                     Expanded(
-                      child: photosAsync.when(
-                        loading: () => _BigPhotoCard(
-                          photoCount: 0,
-                          childName: MockItdaData.childDisplayName,
-                          hasNewPhotos: false,
-                          pulseAnimation: null,
-                          onTapNewPhotos: null,
-                          onTapPastPhotos: _openPastPhotos,
-                        ),
-                        error: (_, __) => _BigPhotoCard(
-                          photoCount: 0,
-                          childName: MockItdaData.childDisplayName,
-                          hasNewPhotos: false,
-                          pulseAnimation: null,
-                          onTapNewPhotos: null,
-                          onTapPastPhotos: _openPastPhotos,
-                        ),
-                        data: (photos) {
-                          final hasPhoto = photos.isNotEmpty;
-                          return _BigPhotoCard(
-                            photoCount: photos.length,
-                            childName: MockItdaData.childDisplayName,
-                            hasNewPhotos: hasPhoto,
-                            pulseAnimation: hasPhoto ? _pulseCtrl : null,
-                            onTapNewPhotos: hasPhoto
-                                ? () => _openPhoto(photos.first, photos)
-                                : null,
-                            onTapPastPhotos: _openPastPhotos,
-                          );
-                        },
+                      child: _BigPhotoCard(
+                        photoCount: photoCount,
+                        childName: MockItdaData.childDisplayName,
+                        hasNewPhotos: hasPhoto,
+                        pulseAnimation: _pulseCtrl,
+                        onTapNewPhotos: hasPhoto ? () => _openPhoto(_firstPhoto!) : null,
+                        onTapPastPhotos: _openPastPhotos,
                       ),
                     ),
                     const SizedBox(height: 16),
                     Expanded(
                       child: _BigHealthCard(
-                        completedSteps: healthQuestCompleted,
+                        completedSteps: _healthQuestCompleted,
                         onTap: _openHealthQuest,
                       ),
                     ),
@@ -607,18 +577,4 @@ class _ProgressSegment extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── 날짜 헬퍼 ────────────────────────────────────────────────────────────────
-
-String _relativeTime(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return '방금 전';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
-  if (diff.inHours < 24) return '${diff.inHours}시간 전';
-  return '${diff.inDays}일 전';
-}
-
-String _dateLabel(DateTime dt) {
-  return '${dt.month}월 ${dt.day}일';
 }
