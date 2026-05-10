@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 
 /// 마이 탭 — 자녀 셸 팔레트·탭 헤더(가운데 제목)와 맞춤
 class ChildMyScreen extends StatelessWidget {
@@ -16,12 +17,7 @@ class ChildMyScreen extends StatelessWidget {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: ChildShellHeader(
-              centerTitle: '프로필',
-              showChildActions: false,
-            ),
-          ),
+          const ChildTabSliverHeader(title: '프로필'),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
             sliver: SliverList(

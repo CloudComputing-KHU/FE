@@ -14,6 +14,7 @@ import 'package:itda/features/child/dashboard/presentation/child_home_screen.dar
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 
 class HealthMonitoringScreen extends ConsumerWidget {
   const HealthMonitoringScreen({super.key});
@@ -28,12 +29,7 @@ class HealthMonitoringScreen extends ConsumerWidget {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: ChildShellHeader(
-              centerTitle: '건강 리포트',
-              showChildActions: false,
-            ),
-          ),
+          const ChildTabSliverHeader(title: '건강 리포트'),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
             sliver: SliverList(

@@ -6,7 +6,7 @@ import 'package:itda/core/models/photo.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
-import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 
 /// 소통 탭. 자녀가 보낸 사진은 BE의 `GET /photos/history`로 가져오고,
 /// 부모의 반응(이모지·음성)은 BE에 매칭되는 API가 없어 데모 데이터를 유지합니다.
@@ -36,12 +36,7 @@ class ChildChatScreen extends ConsumerWidget {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: ChildShellHeader(
-              centerTitle: '소통',
-              showChildActions: false,
-            ),
-          ),
+          const ChildTabSliverHeader(title: '소통'),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
             sliver: sentAsync.when(

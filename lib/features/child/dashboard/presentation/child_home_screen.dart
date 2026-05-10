@@ -6,12 +6,15 @@ library;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/child/dashboard/providers/dashboard_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 
 class ChildHomeScreen extends ConsumerWidget {
   const ChildHomeScreen({
@@ -38,7 +41,9 @@ class ChildHomeScreen extends ConsumerWidget {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(child: ChildShellHeader()),
+          ChildHomeSliverHeader(
+            onNotificationTap: () => context.push(AppRoutes.childNotifications),
+          ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
             sliver: SliverList(

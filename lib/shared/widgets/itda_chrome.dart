@@ -51,12 +51,14 @@ class ItdaShellHeader extends StatelessWidget {
   const ItdaShellHeader({
     super.key,
     this.onRoleSwitch,
+    this.onNotificationTap,
     this.style = ItdaHeaderStyle.child,
     this.centerTitle,
     this.showChildActions = true,
   });
 
   final VoidCallback? onRoleSwitch;
+  final VoidCallback? onNotificationTap;
   final ItdaHeaderStyle style;
 
   /// 자녀 앱에서 탭별 가운데 제목(예: 소통, 건강 리포트).
@@ -87,7 +89,7 @@ class ItdaShellHeader extends StatelessWidget {
           showDot: true,
           circular: true,
           filled: false,
-          onTap: () {},
+          onTap: onNotificationTap ?? () {},
         ),
       if (onRoleSwitch != null) ...[
         const SizedBox(width: 8),
@@ -118,7 +120,7 @@ class ItdaShellHeader extends StatelessWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
-                color: ItdaColors.orangeDark,
+                color: ItdaColors.text,
               ),
             ),
           ),
@@ -147,7 +149,7 @@ class ItdaShellHeader extends StatelessWidget {
                 style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 17,
-                  color: ItdaColors.orangeDark,
+                  color: ItdaColors.text,
                 ),
               ),
             ),

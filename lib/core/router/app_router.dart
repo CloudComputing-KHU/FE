@@ -11,6 +11,7 @@ import 'package:itda/features/auth/presentation/login_screen.dart';
 import 'package:itda/features/auth/presentation/onboarding_screen.dart';
 import 'package:itda/features/auth/presentation/role_select_screen.dart';
 import 'package:itda/features/auth/presentation/splash_screen.dart';
+import 'package:itda/features/child/notifications/presentation/child_notifications_screen.dart';
 import 'package:itda/features/child/shell/presentation/child_shell.dart';
 import 'package:itda/features/parent/home/presentation/parent_home_screen.dart';
 
@@ -39,6 +40,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => Theme(
           data: AppTheme.childTheme(),
           child: const ChildShell(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.childNotifications,
+        builder: (context, state) => Theme(
+          data: AppTheme.childTheme(),
+          child: const ChildNotificationsScreen(),
         ),
       ),
       GoRoute(
