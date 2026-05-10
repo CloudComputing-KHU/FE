@@ -37,12 +37,11 @@ class _ChildShellState extends State<ChildShell> {
         children: [
           ChildHomeScreen(
             onOpenHealthTab: () => setState(() => _index = 1),
-            onRoleSwitch: _goRoleGate,
           ),
           HealthMonitoringScreen(),
           ChildChatScreen(),
           ChildMyScreen(onRoleSwitch: _goRoleGate),
-          PhotoUploadScreen(onRoleSwitch: _goRoleGate),
+          const PhotoUploadScreen(),
         ],
       ),
       bottomNavigationBar: ChildHtmlTabBar(

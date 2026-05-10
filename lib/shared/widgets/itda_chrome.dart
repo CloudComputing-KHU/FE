@@ -71,9 +71,9 @@ class ItdaShellHeader extends StatelessWidget {
     final isParent = style == ItdaHeaderStyle.parent;
     final markSize = isParent ? 42.0 : 36.0;
     final brandSize = isParent ? 24.0 : 22.0;
-    final iconBox = isParent ? 44.0 : 40.0;
-    final iconSz = isParent ? 22.0 : 20.0;
-    final headerPad = EdgeInsets.fromLTRB(22, top + 14, 22, 8);
+    final iconBox = 44.0;
+    final iconSz = 22.0;
+    final headerPad = EdgeInsets.fromLTRB(22, top + 14, 22, 10);
 
     const headerIconTint = Color(0xFF8D8C8D);
 
@@ -83,8 +83,10 @@ class ItdaShellHeader extends StatelessWidget {
           size: iconBox,
           iconSize: iconSz,
           svgAsset: 'assets/icons/notification.svg',
-          iconTint: headerIconTint,
+          iconTint: ItdaColors.text,
           showDot: true,
+          circular: true,
+          filled: false,
           onTap: () {},
         ),
       if (onRoleSwitch != null) ...[
@@ -94,6 +96,7 @@ class ItdaShellHeader extends StatelessWidget {
           iconSize: iconSz,
           svgAsset: 'assets/icons/switch.svg',
           iconTint: headerIconTint,
+          circular: true,
           onTap: onRoleSwitch,
         ),
       ],
@@ -114,7 +117,7 @@ class ItdaShellHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 17,
+                fontSize: 18,
                 color: ItdaColors.orangeDark,
               ),
             ),
@@ -202,6 +205,8 @@ class _HeaderIconBtn extends StatelessWidget {
     required this.svgAsset,
     required this.iconTint,
     this.showDot = false,
+    this.circular = false,
+    this.filled = true,
     this.onTap,
   });
 
@@ -210,16 +215,62 @@ class _HeaderIconBtn extends StatelessWidget {
   final String svgAsset;
   final Color iconTint;
   final bool showDot;
+  final bool circular;
+  final bool filled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final radius = circular ? size / 2 : 12.0;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+    );
+    final ink = Material(
+      color: Colors.transparent,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: shape,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: SvgPicture.asset(
+                svgAsset,
+                width: iconSize,
+                height: iconSize,
+                colorFilter: ColorFilter.mode(iconTint, BlendMode.srcIn),
+              ),
+            ),
+            if (showDot)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: ItdaColors.danger,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (!filled) {
+      return SizedBox(width: size, height: size, child: ink);
+    }
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
             color: ItdaColors.orange.withValues(alpha: 0.08),
@@ -228,41 +279,7 @@ class _HeaderIconBtn extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Center(
-                child: SvgPicture.asset(
-                  svgAsset,
-                  width: iconSize,
-                  height: iconSize,
-                  colorFilter: ColorFilter.mode(iconTint, BlendMode.srcIn),
-                ),
-              ),
-              if (showDot)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: ItdaColors.danger,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+      child: ink,
     );
   }
 }

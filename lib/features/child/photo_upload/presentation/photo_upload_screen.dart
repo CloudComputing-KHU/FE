@@ -14,9 +14,7 @@ import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 import 'package:itda/shared/widgets/xfile_preview.dart';
 
 class PhotoUploadScreen extends ConsumerStatefulWidget {
-  const PhotoUploadScreen({super.key, this.onRoleSwitch});
-
-  final VoidCallback? onRoleSwitch;
+  const PhotoUploadScreen({super.key});
 
   @override
   ConsumerState<PhotoUploadScreen> createState() => _PhotoUploadScreenState();
@@ -160,7 +158,12 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: ChildShellHeader(onRoleSwitch: widget.onRoleSwitch)),
+          SliverToBoxAdapter(
+            child: ChildShellHeader(
+              centerTitle: '사진 보내기',
+              showChildActions: false,
+            ),
+          ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             sliver: SliverList(
@@ -359,7 +362,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (sending)
+                            if (sending) ...[
                               const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -367,10 +370,9 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                                   strokeWidth: 2,
                                   color: Colors.white,
                                 ),
-                              )
-                            else
-                              const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 22),
-                            const SizedBox(width: 10),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
                             Text(
                               sending ? '전송 중…' : '사진 전송하기',
                               style: const TextStyle(

@@ -24,7 +24,7 @@ class ChildHtmlTabBar extends StatelessWidget {
   final VoidCallback onFab;
 
   static const _inactiveIcon = Color(0xFF8D8C8D);
-  static const double _iconSize = 26;
+  static const double _iconSize = 28;
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +54,8 @@ class ChildHtmlTabBar extends StatelessWidget {
           child: Center(
             child: SvgPicture.asset(
               'assets/icons/camera.svg',
-              width: 26,
-              height: 26,
+              width: _iconSize,
+              height: _iconSize,
               colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
             ),
           ),

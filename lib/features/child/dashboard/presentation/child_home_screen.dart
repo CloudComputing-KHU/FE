@@ -17,11 +17,9 @@ class ChildHomeScreen extends ConsumerWidget {
   const ChildHomeScreen({
     super.key,
     this.onOpenHealthTab,
-    this.onRoleSwitch,
   });
 
   final VoidCallback? onOpenHealthTab;
-  final VoidCallback? onRoleSwitch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,7 +38,7 @@ class ChildHomeScreen extends ConsumerWidget {
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: ChildShellHeader(onRoleSwitch: onRoleSwitch)),
+          const SliverToBoxAdapter(child: ChildShellHeader()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
             sliver: SliverList(
