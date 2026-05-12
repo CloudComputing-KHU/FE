@@ -3,6 +3,8 @@ abstract final class AppRoutes {
   static const splash = '/splash';
   static const onboarding = '/onboarding';
   static const login = '/login';
+  /// 회원가입 (폼·BE 연동 확장)
+  static const signUp = '/signup';
   /// 역할 선택 (자녀/부모)
   static const roleSelect = '/';
   static const child = '/child';
