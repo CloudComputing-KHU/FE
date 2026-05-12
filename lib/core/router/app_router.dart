@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_theme.dart';
 import 'package:itda/features/auth/presentation/login_screen.dart';
+import 'package:itda/features/auth/presentation/sign_up_screen.dart';
 import 'package:itda/features/auth/presentation/onboarding_screen.dart';
 import 'package:itda/features/auth/presentation/role_select_screen.dart';
 import 'package:itda/features/auth/presentation/splash_screen.dart';
@@ -17,7 +18,7 @@ import 'package:itda/features/parent/home/presentation/parent_home_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.splash,
+    initialLocation: AppRoutes.login,
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -30,6 +31,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.signUp,
+        builder: (context, state) => const SignUpScreen(),
       ),
       GoRoute(
         path: AppRoutes.roleSelect,

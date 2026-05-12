@@ -77,6 +77,30 @@ class RoleSelectScreen extends StatelessWidget {
                       accent: ItdaColors.orangeDark,
                       onTap: () => context.go(AppRoutes.parent),
                     ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => context.go(AppRoutes.login),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 13,
+                        ),
+                        label: const Text('로그인으로'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: ItdaColors.textSub,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
