@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:itda/core/theme/app_colors.dart';
 
@@ -43,25 +44,27 @@ class _ItdaBrandMarkPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// 자녀: 알림·설정·역할 / 부모: 큰 로고·역할만
+/// 자녀: 알림·역할 전환 / 부모: 큰 로고·역할만
 ///
 /// [centerTitle]이 있으면(자녀 탭) 로고 대신 가운데 제목만 표시합니다.
 class ItdaShellHeader extends StatelessWidget {
   const ItdaShellHeader({
     super.key,
     this.onRoleSwitch,
+    this.onNotificationTap,
     this.style = ItdaHeaderStyle.child,
     this.centerTitle,
     this.showChildActions = true,
   });
 
   final VoidCallback? onRoleSwitch;
+  final VoidCallback? onNotificationTap;
   final ItdaHeaderStyle style;
 
   /// 자녀 앱에서 탭별 가운데 제목(예: 소통, 건강 리포트).
   final String? centerTitle;
 
-  /// `false`면 알림·설정·역할 전환 버튼을 숨깁니다(가운데 제목 헤더용).
+  /// `false`면 알림·역할 전환 버튼을 숨깁니다(가운데 제목 헤더용).
   final bool showChildActions;
 
   @override
@@ -70,33 +73,32 @@ class ItdaShellHeader extends StatelessWidget {
     final isParent = style == ItdaHeaderStyle.parent;
     final markSize = isParent ? 42.0 : 36.0;
     final brandSize = isParent ? 24.0 : 22.0;
-    final iconBox = isParent ? 44.0 : 40.0;
-    final iconSz = isParent ? 22.0 : 20.0;
-    final headerPad = EdgeInsets.fromLTRB(22, top + 14, 22, 8);
+    final iconBox = 44.0;
+    final iconSz = 22.0;
+    final headerPad = EdgeInsets.fromLTRB(22, top + 14, 22, 10);
+
+    const headerIconTint = Color(0xFF8D8C8D);
 
     final trailing = <Widget>[
-      if (!isParent) ...[
+      if (!isParent)
         _HeaderIconBtn(
           size: iconBox,
           iconSize: iconSz,
-          icon: Icons.notifications_outlined,
+          svgAsset: 'assets/icons/notification.svg',
+          iconTint: ItdaColors.text,
           showDot: true,
-          onTap: () {},
+          circular: true,
+          filled: false,
+          onTap: onNotificationTap ?? () {},
         ),
-        const SizedBox(width: 8),
-        _HeaderIconBtn(
-          size: iconBox,
-          iconSize: iconSz,
-          icon: Icons.settings_outlined,
-          onTap: () {},
-        ),
-      ],
       if (onRoleSwitch != null) ...[
         const SizedBox(width: 8),
         _HeaderIconBtn(
           size: iconBox,
           iconSize: iconSz,
-          icon: Icons.swap_horiz_rounded,
+          svgAsset: 'assets/icons/switch.svg',
+          iconTint: headerIconTint,
+          circular: true,
           onTap: onRoleSwitch,
         ),
       ],
@@ -117,8 +119,8 @@ class ItdaShellHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 17,
-                color: ItdaColors.orangeDark,
+                fontSize: 18,
+                color: ItdaColors.text,
               ),
             ),
           ),
@@ -147,7 +149,7 @@ class ItdaShellHeader extends StatelessWidget {
                 style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 17,
-                  color: ItdaColors.orangeDark,
+                  color: ItdaColors.text,
                 ),
               ),
             ),
@@ -202,25 +204,75 @@ class _HeaderIconBtn extends StatelessWidget {
   const _HeaderIconBtn({
     required this.size,
     required this.iconSize,
-    required this.icon,
+    required this.svgAsset,
+    required this.iconTint,
     this.showDot = false,
+    this.circular = false,
+    this.filled = true,
     this.onTap,
   });
 
   final double size;
   final double iconSize;
-  final IconData icon;
+  final String svgAsset;
+  final Color iconTint;
   final bool showDot;
+  final bool circular;
+  final bool filled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final radius = circular ? size / 2 : 12.0;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+    );
+    final ink = Material(
+      color: Colors.transparent,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: shape,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: SvgPicture.asset(
+                svgAsset,
+                width: iconSize,
+                height: iconSize,
+                colorFilter: ColorFilter.mode(iconTint, BlendMode.srcIn),
+              ),
+            ),
+            if (showDot)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: ItdaColors.danger,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (!filled) {
+      return SizedBox(width: size, height: size, child: ink);
+    }
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
             color: ItdaColors.orange.withValues(alpha: 0.08),
@@ -229,34 +281,7 @@ class _HeaderIconBtn extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Center(child: Icon(icon, size: iconSize, color: ItdaColors.textSub)),
-              if (showDot)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: ItdaColors.danger,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+      child: ink,
     );
   }
 }
@@ -293,13 +318,26 @@ class ItdaSectionHeader extends StatelessWidget {
           if (trailing != null)
             GestureDetector(
               onTap: onTrailing,
-              child: Text(
-                trailing!,
-                style: TextStyle(
-                  fontSize: titleSize > 16 ? 13 : 11,
-                  fontWeight: FontWeight.w700,
-                  color: ItdaColors.orange,
-                ),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trailing!,
+                    style: TextStyle(
+                      fontSize: titleSize > 16 ? 13 : 11,
+                      fontWeight: FontWeight.w700,
+                      color: ItdaColors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SvgPicture.asset(
+                    'assets/icons/chevron_right.svg',
+                    width: 14,
+                    height: 14,
+                    colorFilter: const ColorFilter.mode(ItdaColors.orange, BlendMode.srcIn),
+                  ),
+                ],
               ),
             ),
         ],

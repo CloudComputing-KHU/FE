@@ -6,5 +6,6 @@ abstract final class AppRoutes {
   /// 역할 선택 (자녀/부모)
   static const roleSelect = '/';
   static const child = '/child';
+  static const childNotifications = '/child/notifications';
   static const parent = '/parent';
 }

@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 
-/// 마이 탭 — 대시보드와 동일 크롬·팔레트
+/// 마이 탭 — 자녀 셸 팔레트·탭 헤더(가운데 제목)와 맞춤
 class ChildMyScreen extends StatelessWidget {
   const ChildMyScreen({super.key, this.onRoleSwitch});
 
@@ -12,13 +14,15 @@ class ChildMyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
+
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: ChildShellHeader(onRoleSwitch: onRoleSwitch)),
+          const ChildTabSliverHeader(title: '프로필'),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 Container(
@@ -127,6 +131,15 @@ class ChildMyScreen extends StatelessWidget {
                         subtitle: '돌봄 대상 · 알림 수신',
                         onTap: () {},
                       ),
+                      if (onRoleSwitch != null) ...[
+                        const Divider(height: 1),
+                        _MyTile(
+                          icon: Icons.swap_horiz_rounded,
+                          title: '역할 전환',
+                          subtitle: '부모용 · 자녀용 선택',
+                          onTap: onRoleSwitch!,
+                        ),
+                      ],
                     ],
                   ),
                 ),

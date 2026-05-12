@@ -11,12 +11,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
+import 'package:itda/features/child/widgets/child_widgets.dart';
 import 'package:itda/shared/widgets/xfile_preview.dart';
 
 class PhotoUploadScreen extends ConsumerStatefulWidget {
-  const PhotoUploadScreen({super.key, this.onRoleSwitch});
-
-  final VoidCallback? onRoleSwitch;
+  const PhotoUploadScreen({super.key});
 
   @override
   ConsumerState<PhotoUploadScreen> createState() => _PhotoUploadScreenState();
@@ -96,7 +96,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ChildDashboardColors.orangePale,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -155,14 +155,15 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
     final scheduleText = _scheduledAt == null
         ? '즉시 전송 (예약 없음)'
         : DateFormat('M월 d일 HH:mm 예약').format(_scheduledAt!);
+    final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: ChildShellHeader(onRoleSwitch: widget.onRoleSwitch)),
+          const ChildTabSliverHeader(title: '사진 보내기'),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const ChildSectionHeader(title: '사진 선택 · 미리보기'),
@@ -178,14 +179,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                             onTap: () => _pick(ImageSource.gallery),
                             child: Container(
                               decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    ChildDashboardColors.orangeLight,
-                                    Color(0xFFFAC775),
-                                  ],
-                                ),
+                                color: ChildDashboardColors.orangeLight,
                               ),
                               child: const Center(
                                 child: Column(
@@ -344,60 +338,21 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        ChildDashboardColors.orange,
-                        ChildDashboardColors.orangeMid,
-                      ],
+                ChildPrimaryFilledButton(
+                  label: '사진 전송하기',
+                  loadingLabel: '전송 중…',
+                  isLoading: sending,
+                  onPressed: _uploadPhoto,
+                  borderRadius: 16,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  labelFontWeight: FontWeight.w800,
+                  boxShadow: [
+                    BoxShadow(
+                      color: ChildDashboardColors.orange.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ChildDashboardColors.orange.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: sending ? null : _uploadPhoto,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (sending)
-                              const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            else
-                              const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 22),
-                            const SizedBox(width: 10),
-                            Text(
-                              sending ? '전송 중…' : '사진 전송하기',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
               ]),
             ),
@@ -423,25 +378,62 @@ class _SimpleScheduleSheet extends StatefulWidget {
   State<_SimpleScheduleSheet> createState() => _SimpleScheduleSheetState();
 }
 
+enum _ScheduleQuickPick { immediate, evening, morning, custom }
+
 class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
   static const _minuteSteps = [0, 15, 30, 45];
 
   late int _dayOffset;
   late int _hour;
   late int _minute;
+  late _ScheduleQuickPick _quick;
 
   DateTime get _today => DateTime(widget.now.year, widget.now.month, widget.now.day);
 
   @override
   void initState() {
     super.initState();
-    final seed = widget.initial ?? widget.now.add(const Duration(hours: 1));
+    final initial = widget.initial;
+    final seed = initial ?? widget.now.add(const Duration(hours: 1));
+    _seedDropdownsFrom(seed);
+
+    if (initial == null) {
+      _quick = _ScheduleQuickPick.immediate;
+    } else if (_matchesEveningPreset(initial)) {
+      _quick = _ScheduleQuickPick.evening;
+    } else if (_matchesMorningPreset(initial)) {
+      _quick = _ScheduleQuickPick.morning;
+    } else {
+      _quick = _ScheduleQuickPick.custom;
+    }
+  }
+
+  void _seedDropdownsFrom(DateTime seed) {
     final seedDay = DateTime(seed.year, seed.month, seed.day);
     _dayOffset = seedDay.difference(_today).inDays.clamp(0, 14);
     _hour = seed.hour;
     _minute = _minuteSteps.reduce(
       (a, b) => (seed.minute - a).abs() <= (seed.minute - b).abs() ? a : b,
     );
+  }
+
+  bool _matchesEveningPreset(DateTime d) {
+    final target = _nextWallClock(18, 0);
+    return d.year == target.year &&
+        d.month == target.month &&
+        d.day == target.day &&
+        d.hour == 18 &&
+        d.minute == 0;
+  }
+
+  bool _matchesMorningPreset(DateTime d) {
+    final t = _today.add(const Duration(days: 1));
+    final m = DateTime(t.year, t.month, t.day, 9, 0);
+    return d.year == m.year &&
+        d.month == m.month &&
+        d.day == m.day &&
+        d.hour == 9 &&
+        d.minute == 0;
   }
 
   InputDecoration _dropdownDecoration() {
@@ -482,57 +474,26 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
     return t;
   }
 
-  Widget _preset(String title, VoidCallback onTap, {String? subtitle}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: ChildDashboardColors.text,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: ChildDashboardColors.textSub,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: ChildDashboardColors.textMuted,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _setQuick(_ScheduleQuickPick q) {
+    setState(() {
+      _quick = q;
+      if (q == _ScheduleQuickPick.evening) {
+        final t = _nextWallClock(18, 0);
+        _seedDropdownsFrom(t);
+      } else if (q == _ScheduleQuickPick.morning) {
+        final t = _today.add(const Duration(days: 1));
+        _seedDropdownsFrom(DateTime(t.year, t.month, t.day, 9, 0));
+      } else if (q == _ScheduleQuickPick.immediate) {
+        _seedDropdownsFrom(widget.now);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -540,42 +501,46 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
               '언제 보낼까요?',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
                 color: ChildDashboardColors.text,
               ),
             ),
-            const SizedBox(height: 8),
-            _preset(
-              '즉시 전송',
-              () => widget.onPick(null),
-              subtitle: '예약 없이 바로 보냄',
-            ),
-            _preset(
-              '30분 뒤',
-              () => widget.onPick(widget.now.add(const Duration(minutes: 30))),
-            ),
-            _preset(
-              '1시간 뒤',
-              () => widget.onPick(widget.now.add(const Duration(hours: 1))),
-            ),
-            _preset(
-              '오늘 저녁 6시',
-              () => widget.onPick(_nextWallClock(18, 0)),
-            ),
-            _preset(
-              '내일 아침 9시',
-              () {
-                final t = _today.add(const Duration(days: 1));
-                widget.onPick(DateTime(t.year, t.month, t.day, 9, 0));
-              },
+            const SizedBox(height: 20),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ChildScheduleQuickPickCard(
+                  icon: Icons.send_rounded,
+                  title: '즉시 전송',
+                  subtitle: '지금 바로',
+                  selected: _quick == _ScheduleQuickPick.immediate,
+                  onTap: () => _setQuick(_ScheduleQuickPick.immediate),
+                ),
+                const SizedBox(width: 10),
+                ChildScheduleQuickPickCard(
+                  icon: Icons.wb_twilight_rounded,
+                  title: '오늘 저녁',
+                  subtitle: '6시',
+                  selected: _quick == _ScheduleQuickPick.evening,
+                  onTap: () => _setQuick(_ScheduleQuickPick.evening),
+                ),
+                const SizedBox(width: 10),
+                ChildScheduleQuickPickCard(
+                  icon: Icons.wb_sunny_outlined,
+                  title: '내일 아침',
+                  subtitle: '9시',
+                  selected: _quick == _ScheduleQuickPick.morning,
+                  onTap: () => _setQuick(_ScheduleQuickPick.morning),
+                ),
+              ],
             ),
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Divider(height: 1),
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Divider(height: 1, color: Color(0xFFE8E0D4)),
             ),
             const Text(
-              '날짜·시간 직접',
+              '날짜·시간 직접 설정',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -605,7 +570,10 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
                             ),
                           ),
                         ),
-                        onChanged: (v) => setState(() => _dayOffset = v ?? 0),
+                        onChanged: (v) => setState(() {
+                          _quick = _ScheduleQuickPick.custom;
+                          _dayOffset = v ?? 0;
+                        }),
                       ),
                     ),
                   ),
@@ -623,7 +591,10 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
                           24,
                           (h) => DropdownMenuItem(value: h, child: Text('$h시')),
                         ),
-                        onChanged: (v) => setState(() => _hour = v ?? 0),
+                        onChanged: (v) => setState(() {
+                          _quick = _ScheduleQuickPick.custom;
+                          _hour = v ?? 0;
+                        }),
                       ),
                     ),
                   ),
@@ -645,35 +616,42 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) =>
-                            setState(() => _minute = v ?? _minuteSteps.first),
+                        onChanged: (v) => setState(() {
+                          _quick = _ScheduleQuickPick.custom;
+                          _minute = v ?? _minuteSteps.first;
+                        }),
                       ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            FilledButton(
+            const SizedBox(height: 18),
+            ChildPrimaryFilledButton(
+              label: '이 시간으로 예약',
               onPressed: () {
-                final dt = _combine();
-                if (!dt.isAfter(widget.now)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('지난 시간이에요. 다시 골라 주세요.')),
-                  );
-                  return;
+                switch (_quick) {
+                  case _ScheduleQuickPick.immediate:
+                    widget.onPick(null);
+                    return;
+                  case _ScheduleQuickPick.evening:
+                    widget.onPick(_nextWallClock(18, 0));
+                    return;
+                  case _ScheduleQuickPick.morning:
+                    final t = _today.add(const Duration(days: 1));
+                    widget.onPick(DateTime(t.year, t.month, t.day, 9, 0));
+                    return;
+                  case _ScheduleQuickPick.custom:
+                    final dt = _combine();
+                    if (!dt.isAfter(widget.now)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('지난 시간이에요. 다시 골라 주세요.')),
+                      );
+                      return;
+                    }
+                    widget.onPick(dt);
                 }
-                widget.onPick(dt);
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: ChildDashboardColors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text('이 시간으로 예약'),
             ),
           ],
         ),
