@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
 import 'package:itda/shared/widgets/xfile_preview.dart';
 
@@ -154,6 +155,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
     final scheduleText = _scheduledAt == null
         ? '즉시 전송 (예약 없음)'
         : DateFormat('M월 d일 HH:mm 예약').format(_scheduledAt!);
+    final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -161,7 +163,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
         slivers: [
           const ChildTabSliverHeader(title: '사진 보내기'),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const ChildSectionHeader(title: '사진 선택 · 미리보기'),

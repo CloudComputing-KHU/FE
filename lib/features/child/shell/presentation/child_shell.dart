@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/router/routes.dart';
@@ -10,47 +11,40 @@ import 'package:itda/features/child/dashboard/presentation/child_home_screen.dar
 import 'package:itda/features/child/health_monitoring/presentation/health_monitoring_screen.dart';
 import 'package:itda/features/child/my/presentation/child_my_screen.dart';
 import 'package:itda/features/child/photo_upload/presentation/photo_upload_screen.dart';
+import 'package:itda/features/child/shell/providers/child_shell_tab_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 
-class ChildShell extends StatefulWidget {
+class ChildShell extends ConsumerWidget {
   const ChildShell({super.key});
 
-  @override
-  State<ChildShell> createState() => _ChildShellState();
-}
-
-class _ChildShellState extends State<ChildShell> {
-  /// 0 홈, 1 건강, 2 소통, 3 마이, 4 사진(FAB)
-  int _index = 0;
-
-  void _goRoleGate() {
+  void _goRoleGate(BuildContext context) {
     context.go(AppRoutes.roleSelect);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final index = ref.watch(childShellTabProvider);
+
     return Scaffold(
       extendBody: true,
       appBar: null,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [
-          ChildHomeScreen(
-            onOpenHealthTab: () => setState(() => _index = 1),
-          ),
+          const ChildHomeScreen(),
           HealthMonitoringScreen(),
           ChildChatScreen(),
-          ChildMyScreen(onRoleSwitch: _goRoleGate),
+          ChildMyScreen(onRoleSwitch: () => _goRoleGate(context)),
           const PhotoUploadScreen(),
         ],
       ),
       bottomNavigationBar: ChildHtmlTabBar(
-        bodyIndex: _index,
-        onHome: () => setState(() => _index = 0),
-        onHealth: () => setState(() => _index = 1),
-        onChat: () => setState(() => _index = 2),
-        onMy: () => setState(() => _index = 3),
-        onFab: () => setState(() => _index = 4),
+        bodyIndex: index,
+        onHome: () => ref.read(childShellTabProvider.notifier).state = 0,
+        onHealth: () => ref.read(childShellTabProvider.notifier).state = 1,
+        onChat: () => ref.read(childShellTabProvider.notifier).state = 2,
+        onMy: () => ref.read(childShellTabProvider.notifier).state = 3,
+        onFab: () => ref.read(childShellTabProvider.notifier).state = 4,
       ),
     );
   }

@@ -1,5 +1,4 @@
-/// 자녀 탭 「건강 리포트」. 차트는 데모 데이터 기준이며,
-/// 「건강 퀘스트 응답」은 `GET /answers/health`,
+/// 자녀 탭 「건강 리포트」. 차트·요약은 데모 데이터 기준이며,
 /// 「AI 음성 분석 · 위험 알림」은 `GET /dementia?user_id=...` 데이터를 사용합니다.
 library;
 
@@ -8,12 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
-import 'package:itda/core/models/answer_item.dart';
 import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart' show ChildHealthTrendPanel;
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
+import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
 
 class HealthMonitoringScreen extends ConsumerWidget {
@@ -22,8 +21,9 @@ class HealthMonitoringScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trend = MockItdaData.weeklyMoodTrend;
-    final answersAsync = ref.watch(parentAnswersProvider('health'));
     final dementiaAsync = ref.watch(parentDementiaHistoryProvider);
+
+    final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -31,7 +31,7 @@ class HealthMonitoringScreen extends ConsumerWidget {
         slivers: [
           const ChildTabSliverHeader(title: '건강 리포트'),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const ChildSectionHeader(title: '일일 건강 요약'),
@@ -153,14 +153,6 @@ class HealthMonitoringScreen extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, color: ChildDashboardColors.textMuted),
                 ),
                 const SizedBox(height: 18),
-                const ChildSectionHeader(title: '건강 퀘스트 응답'),
-                const SizedBox(height: 10),
-                _ParentAnswersPanel(
-                  answersAsync: answersAsync,
-                  onRetry: () =>
-                      ref.read(parentAnswersProvider('health').notifier).refresh(),
-                ),
-                const SizedBox(height: 18),
                 const ChildSectionHeader(title: 'AI 음성 분석 · 위험 알림'),
                 const SizedBox(height: 10),
                 _DementiaAlertPanel(
@@ -174,106 +166,6 @@ class HealthMonitoringScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-}
-
-/// "건강 퀘스트 응답" 섹션 — BE의 `GET /answers/health` 결과 표시.
-class _ParentAnswersPanel extends StatelessWidget {
-  const _ParentAnswersPanel({
-    required this.answersAsync,
-    required this.onRetry,
-  });
-
-  final AsyncValue<List<AnswerItem>> answersAsync;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChildItdaPanel(
-      child: answersAsync.when(
-        loading: () => const SizedBox(
-          height: 80,
-          child: Center(
-            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
-          ),
-        ),
-        error: (e, _) => _ErrorView(onRetry: onRetry),
-        data: (answers) {
-          if (answers.isEmpty) {
-            return const _EmptyView(message: '아직 부모님의 답변이 없어요.');
-          }
-          return Column(
-            children: [
-              for (var i = 0; i < answers.length; i++) ...[
-                if (i > 0) const Divider(height: 20),
-                _AnswerRow(item: answers[i]),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _AnswerRow extends StatelessWidget {
-  const _AnswerRow({required this.item});
-
-  final AnswerItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final question = _questionLabel(item.type);
-    final answerText = item.isVoice ? '🎤 음성 답변' : (item.answer ?? '(빈 답변)');
-    final dateLabel = '${item.createdAt.month}/${item.createdAt.day}';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                question,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: ChildDashboardColors.text,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '응답: $answerText',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: ChildDashboardColors.textSub,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          dateLabel,
-          style: const TextStyle(
-            fontSize: 11,
-            color: ChildDashboardColors.textMuted,
-          ),
-        ),
-      ],
-    );
-  }
-
-  static String _questionLabel(String type) {
-    switch (type) {
-      case 'meal':
-        return '식사 관련 질문';
-      case 'mood':
-        return '기분 관련 질문';
-      case 'health':
-      default:
-        return '건강 관련 질문';
-    }
   }
 }
 

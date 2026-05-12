@@ -2,11 +2,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
+import 'package:itda/features/child/shell/providers/child_shell_tab_provider.dart';
+import 'package:itda/features/child/widgets/child_primary_filled_button.dart';
 
 /// 자녀 알림 유형(추후 BE 푸시·폴링과 매핑).
 enum ChildNotificationKind {
@@ -19,23 +22,22 @@ enum ChildNotificationKind {
 class ChildNotificationsScreen extends StatelessWidget {
   const ChildNotificationsScreen({super.key});
 
-  /// 사진 독려 카드 — 아이콘 배경(연노랑).
-  static const _photoIconBg = Color(0xFFFEF9D7);
-
-  /// 데모 목록. BE 연동 시 [ChildNotificationKind]별로 서버 데이터를 채웁니다.
-  static final _items = <_NotificationItem>[
+  /// 데모: 퀘스트 완료 / 사진 보내기 구분. BE 연동 시 타입·시간으로 나눕니다.
+  static final List<_NotificationItem> _questItems = [
     _NotificationItem(
       kind: ChildNotificationKind.parentQuestAnswer,
-      badgeLabel: '퀘스트 완료',
-      title: '${MockItdaData.parentDisplayName}가 오늘 퀘스트에 답했어요',
-      subtitle: '기분 퀘스트 · "좋아요"',
+      headline: '퀘스트 완료',
+      description:
+          '${MockItdaData.parentDisplayName}가 오늘 퀘스트에 답했어요',
       timeLabel: '1시간 전',
     ),
+  ];
+
+  static final List<_NotificationItem> _photoItems = [
     const _NotificationItem(
       kind: ChildNotificationKind.photoReminderToday,
-      badgeLabel: '사진 보내기',
-      title: '오늘 아직 사진을 안 보내셨어요',
-      subtitle: '부모님께 오늘 하루를 사진으로 전해드려요',
+      headline: '사진 보내기',
+      description: '오늘 아직 사진을 안 보내셨어요',
       timeLabel: '오전 10:00',
     ),
   ];
@@ -63,118 +65,133 @@ class ChildNotificationsScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView.separated(
+      body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        itemCount: _items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 14),
-        itemBuilder: (context, i) => _NotificationCard(item: _items[i]),
+        children: [
+          _NotificationSectionCard(items: _questItems),
+          const SizedBox(height: 14),
+          _NotificationSectionCard(items: _photoItems),
+        ],
       ),
     );
   }
 }
 
-class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({required this.item});
+/// 한 섹션 안의 알림들을 흰 카드 + 내부 구분선으로 묶음.
+class _NotificationSectionCard extends StatelessWidget {
+  const _NotificationSectionCard({required this.items});
+
+  final List<_NotificationItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: ChildDashboardColors.orange.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: ChildDashboardColors.border.withValues(alpha: 0.5),
+                ),
+              _NotificationTile(item: items[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationTile extends ConsumerWidget {
+  const _NotificationTile({required this.item});
 
   final _NotificationItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isPhoto = item.kind == ChildNotificationKind.photoReminderToday;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: ChildDashboardColors.orange.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LeadingIcon(kind: item.kind),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+              _LeadingIcon(kind: item.kind),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _Badge(
-                          label: item.badgeLabel,
-                          background: isPhoto
-                              ? ChildNotificationsScreen._photoIconBg
-                              : ChildDashboardColors.orangeLight,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            height: 1.35,
-                            color: ChildDashboardColors.text,
+                        Expanded(
+                          child: Text(
+                            item.headline,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              height: 1.35,
+                              color: ChildDashboardColors.text,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          item.subtitle,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.45,
-                            color: ChildDashboardColors.textSub,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        const SizedBox(width: 8),
                         Text(
                           item.timeLabel,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: ChildDashboardColors.textMuted,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              if (isPhoto) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => context.pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: ChildDashboardColors.text,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFD9D0C4)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: ChildDashboardColors.textSub,
                       ),
                     ),
-                    child: const Text(
-                      '사진 보내기',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                    ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
-        ),
+          if (isPhoto) ...[
+            const SizedBox(height: 12),
+            ChildPrimaryFilledButton(
+              label: '사진 보내기',
+              onPressed: () {
+                ref.read(childShellTabProvider.notifier).state = 4;
+                context.pop();
+              },
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -189,20 +206,18 @@ class _LeadingIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPhoto = kind == ChildNotificationKind.photoReminderToday;
     return Container(
-      width: 52,
-      height: 52,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: isPhoto
-            ? ChildNotificationsScreen._photoIconBg
-            : ChildDashboardColors.orangeLight,
-        borderRadius: BorderRadius.circular(14),
+        color: ChildDashboardColors.orangeLight,
+        borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
       child: isPhoto
           ? SvgPicture.asset(
               'assets/icons/camera.svg',
-              width: 26,
-              height: 26,
+              width: 22,
+              height: 22,
               colorFilter: const ColorFilter.mode(
                 ChildDashboardColors.orangeDark,
                 BlendMode.srcIn,
@@ -210,35 +225,9 @@ class _LeadingIcon extends StatelessWidget {
             )
           : const Icon(
               Icons.sentiment_satisfied_alt_rounded,
-              size: 28,
+              size: 24,
               color: ChildDashboardColors.orangeDark,
             ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.background});
-
-  final String label;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: ChildDashboardColors.orangeDark,
-        ),
-      ),
     );
   }
 }
@@ -246,15 +235,15 @@ class _Badge extends StatelessWidget {
 class _NotificationItem {
   const _NotificationItem({
     required this.kind,
-    required this.badgeLabel,
-    required this.title,
-    required this.subtitle,
+    required this.headline,
+    required this.description,
     required this.timeLabel,
   });
 
   final ChildNotificationKind kind;
-  final String badgeLabel;
-  final String title;
-  final String subtitle;
+  /// 한 줄 제목(퀘스트 완료 / 사진 보내기) — 시간과 같은 줄.
+  final String headline;
+  /// 예전 큰 제목에 쓰이던 본문 설명.
+  final String description;
   final String timeLabel;
 }

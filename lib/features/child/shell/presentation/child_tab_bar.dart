@@ -5,6 +5,14 @@ import 'package:itda/features/child/shell/presentation/child_colors.dart';
 
 /// 자녀 셸 하단 탭: 홈 · 건강(리포트) · 중앙 FAB(카메라) · 소통 · 프로필(마이).
 class ChildHtmlTabBar extends StatelessWidget {
+  /// [Scaffold.extendBody] 사용 시 스크롤 본문 하단에 더할 여백
+  /// (탭 줄·FAB 돌출·홈 인디케이터). 각 탭 화면 [ListView]/[CustomScrollView] 패딩에 사용합니다.
+  static double scrollBottomPadding(BuildContext context) {
+    const fabSize = 54.0;
+    final stackHeight = fabSize / 2 + 52;
+    return stackHeight + MediaQuery.paddingOf(context).bottom;
+  }
+
   const ChildHtmlTabBar({
     super.key,
     required this.bodyIndex,
