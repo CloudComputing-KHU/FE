@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
+import 'package:itda/shared/widgets/itda_primary_button.dart';
 
 /// 로그인 화면. ID 공급자(Cognito 등) 연동 시 폼 검증·API 호출을 연결합니다.
 class LoginScreen extends StatefulWidget {
@@ -184,24 +185,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_radius),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  child: const Text('로그인'),
-                ),
+              ItdaPrimaryButton(
+                label: '로그인',
+                onPressed: _submit,
+                borderRadius: _radius,
               ),
               const SizedBox(height: 28),
               Row(
