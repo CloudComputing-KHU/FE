@@ -1,5 +1,5 @@
 /// 자녀 탭 「건강 리포트」. 차트·요약은 데모 데이터 기준이며,
-/// 「AI 음성 분석 · 위험 알림」은 `GET /dementia?user_id=...` 데이터를 사용합니다.
+/// 「AI 음성 분석 · 위험 알림」은 `GET /dementia` 데이터를 사용합니다.
 library;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -8,7 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/models/dementia_analysis.dart';
-import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart' show ChildHealthTrendPanel;
+import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart'
+    show ChildHealthTrendPanel;
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
@@ -84,20 +85,29 @@ class HealthMonitoringScreen extends ConsumerWidget {
                           drawVerticalLine: false,
                           horizontalInterval: 0.5,
                           getDrawingHorizontalLine: (v) => FlLine(
-                            color: ChildDashboardColors.orange.withValues(alpha: 0.12),
+                            color: ChildDashboardColors.orange.withValues(
+                              alpha: 0.12,
+                            ),
                             strokeWidth: 1,
                           ),
                         ),
                         titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 32,
                               getTitlesWidget: (v, m) => Text(
                                 v.toStringAsFixed(1),
-                                style: const TextStyle(fontSize: 10, color: ChildDashboardColors.textMuted),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: ChildDashboardColors.textMuted,
+                                ),
                               ),
                             ),
                           ),
@@ -107,7 +117,15 @@ class HealthMonitoringScreen extends ConsumerWidget {
                               reservedSize: 22,
                               interval: 1,
                               getTitlesWidget: (v, m) {
-                                const days = ['월', '화', '수', '목', '금', '토', '일'];
+                                const days = [
+                                  '월',
+                                  '화',
+                                  '수',
+                                  '목',
+                                  '금',
+                                  '토',
+                                  '일',
+                                ];
                                 final i = v.round().clamp(0, 6);
                                 if ((v - v.round()).abs() > 0.05) {
                                   return const SizedBox.shrink();
@@ -131,7 +149,8 @@ class HealthMonitoringScreen extends ConsumerWidget {
                         lineBarsData: [
                           LineChartBarData(
                             spots: [
-                              for (var i = 0; i < trend.length; i++) FlSpot(i.toDouble(), trend[i]),
+                              for (var i = 0; i < trend.length; i++)
+                                FlSpot(i.toDouble(), trend[i]),
                             ],
                             isCurved: true,
                             color: ChildDashboardColors.orange,
@@ -139,7 +158,9 @@ class HealthMonitoringScreen extends ConsumerWidget {
                             dotData: const FlDotData(show: true),
                             belowBarData: BarAreaData(
                               show: true,
-                              color: ChildDashboardColors.orange.withValues(alpha: 0.1),
+                              color: ChildDashboardColors.orange.withValues(
+                                alpha: 0.1,
+                              ),
                             ),
                           ),
                         ],
@@ -150,15 +171,19 @@ class HealthMonitoringScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   '점수는 기분·활동 지표를 단순화한 데모 값입니다.',
-                  style: TextStyle(fontSize: 11, color: ChildDashboardColors.textMuted),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ChildDashboardColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 const ChildSectionHeader(title: 'AI 음성 분석 · 위험 알림'),
                 const SizedBox(height: 10),
                 _DementiaAlertPanel(
                   asyncHistory: dementiaAsync,
-                  onRetry: () =>
-                      ref.read(parentDementiaHistoryProvider.notifier).refresh(),
+                  onRetry: () => ref
+                      .read(parentDementiaHistoryProvider.notifier)
+                      .refresh(),
                 ),
               ]),
             ),
@@ -169,7 +194,7 @@ class HealthMonitoringScreen extends ConsumerWidget {
   }
 }
 
-/// "AI 음성 분석 · 위험 알림" 섹션 — `GET /dementia?user_id=` 결과 중
+/// "AI 음성 분석 · 위험 알림" 섹션 — `GET /dementia` 결과 중
 /// 가장 최근 항목을 강조해 표시. 분석이 진행 중이거나 결과가 없으면
 /// 안내 메시지를 보여줍니다.
 class _DementiaAlertPanel extends StatelessWidget {
@@ -190,7 +215,9 @@ class _DementiaAlertPanel extends StatelessWidget {
         child: const SizedBox(
           height: 60,
           child: Center(
-            child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+            child: CircularProgressIndicator(
+              color: ChildDashboardColors.orange,
+            ),
           ),
         ),
       ),
@@ -205,7 +232,8 @@ class _DementiaAlertPanel extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: _decoration(highlight: false),
             child: const _EmptyView(
-              message: '아직 분석된 음성 기록이 없어요.\n부모님의 음성 답변이 도착하면 AI 분석 결과가 여기에 표시됩니다.',
+              message:
+                  '아직 분석된 음성 기록이 없어요.\n부모님의 음성 답변이 도착하면 AI 분석 결과가 여기에 표시됩니다.',
             ),
           );
         }
@@ -239,10 +267,7 @@ class _DementiaAlertPanel extends StatelessWidget {
 }
 
 class _LatestAnalysisCard extends StatelessWidget {
-  const _LatestAnalysisCard({
-    required this.item,
-    required this.totalCount,
-  });
+  const _LatestAnalysisCard({required this.item, required this.totalCount});
 
   final DementiaAnalysisItem item;
   final int totalCount;
@@ -251,7 +276,7 @@ class _LatestAnalysisCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final risk = item.riskLevel ?? RiskLevel.unknown;
     final isDanger = risk == RiskLevel.high || risk == RiskLevel.medium;
-    
+
     final dateLabel = _formatDate(item.completedAt ?? item.createdAt);
 
     return Container(
@@ -290,7 +315,10 @@ class _LatestAnalysisCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: isDanger
                       ? ChildDashboardColors.danger.withValues(alpha: 0.12)
@@ -424,10 +452,7 @@ class _ErrorView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('다시 시도'),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
         ],
       ),
     );

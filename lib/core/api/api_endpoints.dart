@@ -17,6 +17,19 @@ abstract final class ApiEndpoints {
     return 'http://localhost:8000';
   }
 
+  // ==================== Auth ====================
+  /// `POST /auth/signup` — 회원가입
+  static const String authSignup = '/auth/signup';
+
+  /// `POST /auth/confirm` — 회원가입 인증 확인
+  static const String authConfirm = '/auth/confirm';
+
+  /// `POST /auth/login` — 로그인
+  static const String authLogin = '/auth/login';
+
+  /// `POST /auth/refresh` — 토큰 갱신
+  static const String authRefresh = '/auth/refresh';
+
   // ==================== Questions ====================
   /// `GET /questions/{type}` — 오늘의 질문 조회 (type: health | meal | mood)
   static String questions(String type) => '/questions/$type';

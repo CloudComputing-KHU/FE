@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/models/photo.dart';
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart'
     show childRepositoryProvider;
@@ -7,10 +8,11 @@ import 'package:itda/features/child/health_monitoring/providers/health_provider.
 /// 사진 전송 중 여부. 업로드 시작/종료 시 갱신합니다.
 final uploadBusyProvider = StateProvider<bool>((ref) => false);
 
-// ── 자녀 식별 ────────────────────────────────────────────────────────────────
-// TODO: 인증 연동 후 실제 user_id로 교체.
-const _kChildUserId = 'child_001';
-const _kParentUserId = 'parent_001';
+// ── 사용자 식별 ─────────────────────────────────────────────────────────────
+
+Future<String> _currentUserId() async {
+  return await TokenStorage.readCurrentUserId() ?? 'child_001';
+}
 
 // ── 사진 업로드 결과 ───────────────────────────────────────────────────────
 
@@ -32,9 +34,12 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
 }) async {
   ref.read(uploadBusyProvider.notifier).state = true;
   try {
-    await ref.read(childRepositoryProvider).sendPhoto(
-          childUserId: _kChildUserId,
-          parentUserId: _kParentUserId,
+    final userId = await _currentUserId();
+    await ref
+        .read(childRepositoryProvider)
+        .sendPhoto(
+          childUserId: userId,
+          parentUserId: userId,
           filePath: filePath,
           caption: caption,
           scheduledAt: scheduledAt,
@@ -58,19 +63,21 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
 /// 화면에서 미사용이라도 미리 정의해두면 추후 "보낸 사진 모아보기" 화면에서 그대로 사용 가능.
 class SentPhotosNotifier extends AutoDisposeAsyncNotifier<List<Photo>> {
   @override
-  Future<List<Photo>> build() {
-    return ref.read(childRepositoryProvider).fetchSentPhotos(_kChildUserId);
+  Future<List<Photo>> build() async {
+    final userId = await _currentUserId();
+    return ref.read(childRepositoryProvider).fetchSentPhotos(userId);
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
+    final userId = await _currentUserId();
     state = await AsyncValue.guard(
-      () => ref.read(childRepositoryProvider).fetchSentPhotos(_kChildUserId),
+      () => ref.read(childRepositoryProvider).fetchSentPhotos(userId),
     );
   }
 }
 
 final sentPhotosProvider =
     AsyncNotifierProvider.autoDispose<SentPhotosNotifier, List<Photo>>(
-  SentPhotosNotifier.new,
-);
+      SentPhotosNotifier.new,
+    );

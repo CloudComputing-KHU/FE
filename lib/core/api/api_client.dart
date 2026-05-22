@@ -16,6 +16,9 @@ class ApiClient {
       ),
     );
     dio.interceptors.add(AuthInterceptor());
+    dio.interceptors.add(
+      LogInterceptor(requestHeader: true, responseBody: true),
+    );
     return dio;
   }
 }
