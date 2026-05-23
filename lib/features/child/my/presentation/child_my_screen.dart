@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/features/child/my/presentation/parent_connection_screen.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
@@ -136,9 +137,15 @@ class ChildMyScreen extends ConsumerWidget {
                     children: [
                       _MyTile(
                         icon: Icons.family_restroom_rounded,
-                        title: '${MockItdaData.parentDisplayName}님 연결 관리',
+                        title: '부모님 연결 관리',
                         subtitle: '돌봄 대상 · 알림 수신',
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ParentConnectionScreen(),
+                            ),
+                          );
+                        },
                       ),
                       if (onRoleSwitch != null) ...[
                         const Divider(height: 1),
