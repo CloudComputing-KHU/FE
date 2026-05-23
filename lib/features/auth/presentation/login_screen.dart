@@ -45,6 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authServiceProvider)
           .login(email: email, password: password);
       ref.read(authSessionProvider.notifier).state = true;
+      ref.invalidate(currentUserProfileProvider);
       if (!mounted) return;
       context.go(AppRoutes.roleSelect);
     } catch (error) {

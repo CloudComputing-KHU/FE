@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/features/child/dashboard/providers/dashboard_provider.dart';
@@ -23,6 +24,7 @@ class ChildHomeScreen extends ConsumerWidget {
     final todayQuestsAsync = ref.watch(todayQuestsProvider);
     final answeredCount = ref.watch(answeredCountTodayProvider);
     final riskCount = ref.watch(riskAlertCountProvider);
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final streakTile = MockItdaData.dashboardSummaryTiles[3];
     final streakText = '${streakTile.value}${streakTile.unit}';
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
@@ -39,7 +41,8 @@ class ChildHomeScreen extends ConsumerWidget {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _GreetingCard(
-                  childName: MockItdaData.childDisplayName,
+                  childName:
+                      profile?.displayName ?? MockItdaData.childDisplayName,
                   answeredCount: answeredCount,
                 ),
                 const SizedBox(height: 16),
@@ -85,10 +88,7 @@ class ChildHomeScreen extends ConsumerWidget {
 }
 
 class _GreetingCard extends StatelessWidget {
-  const _GreetingCard({
-    required this.childName,
-    required this.answeredCount,
-  });
+  const _GreetingCard({required this.childName, required this.answeredCount});
 
   final String childName;
   final int answeredCount;
@@ -193,7 +193,10 @@ class ChildHealthTrendPanel extends StatelessWidget {
           ),
           Text(
             'AI 음성 분석 · 최근 7일',
-            style: TextStyle(fontSize: 10, color: ChildDashboardColors.textMuted),
+            style: TextStyle(
+              fontSize: 10,
+              color: ChildDashboardColors.textMuted,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -214,8 +217,12 @@ class ChildHealthTrendPanel extends StatelessWidget {
                   ),
                 ),
                 titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -223,7 +230,10 @@ class ChildHealthTrendPanel extends StatelessWidget {
                       interval: 10,
                       getTitlesWidget: (v, m) => Text(
                         v.toInt().toString(),
-                        style: const TextStyle(fontSize: 9, color: ChildDashboardColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: ChildDashboardColors.textMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -256,7 +266,8 @@ class ChildHealthTrendPanel extends StatelessWidget {
                 lineBarsData: [
                   LineChartBarData(
                     spots: [
-                      for (var i = 0; i < scores.length; i++) FlSpot(i.toDouble(), scores[i]),
+                      for (var i = 0; i < scores.length; i++)
+                        FlSpot(i.toDouble(), scores[i]),
                     ],
                     isCurved: true,
                     color: ChildDashboardColors.orange,
@@ -321,7 +332,9 @@ class _TodayQuestPanel extends StatelessWidget {
           child: SizedBox(
             height: 80,
             child: Center(
-              child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+              child: CircularProgressIndicator(
+                color: ChildDashboardColors.orange,
+              ),
             ),
           ),
         ),
@@ -329,10 +342,7 @@ class _TodayQuestPanel extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Text(
             '응답 정보를 불러오지 못했어요.',
-            style: TextStyle(
-              fontSize: 12,
-              color: ChildDashboardColors.textSub,
-            ),
+            style: TextStyle(fontSize: 12, color: ChildDashboardColors.textSub),
           ),
         ),
         data: (quests) {
@@ -341,11 +351,7 @@ class _TodayQuestPanel extends StatelessWidget {
             children: [
               for (var i = 0; i < quests.length; i++) ...[
                 if (i > 0)
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: _dividerColor,
-                  ),
+                  const Divider(height: 1, thickness: 1, color: _dividerColor),
                 _TodayQuestRow(quest: quests[i]),
               ],
             ],
@@ -388,7 +394,9 @@ class _TodayQuestRow extends StatelessWidget {
                     height: 1.25,
                   ),
                 ),
-                if (preview != null && preview.isNotEmpty && quest.responded) ...[
+                if (preview != null &&
+                    preview.isNotEmpty &&
+                    quest.responded) ...[
                   const SizedBox(height: 4),
                   Text(
                     preview,

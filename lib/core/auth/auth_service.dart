@@ -43,9 +43,12 @@ class AuthService {
         'password_confirm': passwordConfirm,
       },
     );
-    return _readString(response.data ?? const <String, dynamic>{}, const [
-      'message',
-    ]);
+    final message = _readString(
+      response.data ?? const <String, dynamic>{},
+      const ['message'],
+    );
+    await TokenStorage.writeUserProfile(name: name, email: email, role: role);
+    return message;
   }
 
   Future<String?> confirm({
@@ -97,6 +100,7 @@ class AuthService {
       idToken: session.idToken,
       expiresIn: session.expiresIn,
     );
+    await TokenStorage.writeUserProfile(email: email);
     return session;
   }
 
