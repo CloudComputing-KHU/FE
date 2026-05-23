@@ -200,211 +200,208 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                '역할을 선택해주세요',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSub,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _RoleChoiceCard(
-                      title: '자녀',
-                      icon: Icons.person_outline_rounded,
-                      selected: _role == _SignUpRole.child,
-                      onTap: () => setState(() => _role = _SignUpRole.child),
-                    ),
+              if (_verificationSent) ...[
+                const SizedBox(height: 36),
+                const CircleAvatar(
+                  radius: 42,
+                  backgroundColor: AppColors.orange,
+                  child: Icon(
+                    Icons.mark_email_read_rounded,
+                    color: Colors.white,
+                    size: 42,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _RoleChoiceCard(
-                      title: '부모님',
-                      icon: Icons.elderly_rounded,
-                      selected: _role == _SignUpRole.parent,
-                      onTap: () => setState(() => _role = _SignUpRole.parent),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              Text(
-                '이름',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSub,
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameCtrl,
-                textInputAction: TextInputAction.next,
-                decoration: _fieldDecoration(hint: '이름을 입력하세요'),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '이메일',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSub,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) {
-                        if (_verificationSent) {
-                          setState(() => _verificationSent = false);
-                        }
-                      },
-                      decoration: _fieldDecoration(hint: '이메일을 입력하세요'),
-                    ),
+                const SizedBox(height: 28),
+                const Text(
+                  '인증번호를 입력해주세요',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.text,
                   ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: _isSendingCode ? null : _sendVerificationCode,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.orange,
-                        side: const BorderSide(color: AppColors.orange),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(_radius),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      child: Text(
-                        _isSendingCode
-                            ? '전송 중'
-                            : _verificationSent
-                            ? '재전송'
-                            : '인증하기',
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '${_emailCtrl.text.trim()} 으로\n인증번호를 보냈어요.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.55,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                Text(
+                  '인증번호',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _codeCtrl,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!_isConfirming) _confirmCode();
+                  },
+                  decoration: _fieldDecoration(hint: '이메일로 받은 인증번호를 입력하세요'),
+                ),
+                const SizedBox(height: 28),
+                ItdaPrimaryButton(
+                  label: _isConfirming ? '인증 중...' : '인증 완료',
+                  onPressed: _isConfirming ? null : _confirmCode,
+                  borderRadius: _radius,
+                ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: _isSendingCode ? null : _sendVerificationCode,
+                  child: Text(_isSendingCode ? '전송 중...' : '인증번호 다시 받기'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _verificationSent = false),
+                  child: const Text('회원가입 정보 수정하기'),
+                ),
+              ] else ...[
+                Text(
+                  '역할을 선택해주세요',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _RoleChoiceCard(
+                        title: '자녀',
+                        icon: Icons.person_outline_rounded,
+                        selected: _role == _SignUpRole.child,
+                        onTap: () => setState(() => _role = _SignUpRole.child),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _verificationSent
-                    ? Padding(
-                        key: const ValueKey('verification-code'),
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              '인증번호',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textSub,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _codeCtrl,
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) {
-                                if (!_isConfirming) _confirmCode();
-                              },
-                              decoration: _fieldDecoration(
-                                hint: '이메일로 받은 인증번호를 입력하세요',
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '비밀번호',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSub,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _RoleChoiceCard(
+                        title: '부모님',
+                        icon: Icons.elderly_rounded,
+                        selected: _role == _SignUpRole.parent,
+                        onTap: () => setState(() => _role = _SignUpRole.parent),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _passwordCtrl,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.next,
-                decoration: _fieldDecoration(
-                  hint: '비밀번호를 입력하세요',
-                  suffix: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: AppColors.textMuted,
-                      size: 22,
+                const SizedBox(height: 28),
+                Text(
+                  '이름',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameCtrl,
+                  textInputAction: TextInputAction.next,
+                  decoration: _fieldDecoration(hint: '이름을 입력하세요'),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '이메일',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) {
+                    if (_verificationSent) {
+                      setState(() => _verificationSent = false);
+                    }
+                  },
+                  decoration: _fieldDecoration(hint: '이메일을 입력하세요'),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '비밀번호',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSub,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _passwordCtrl,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  decoration: _fieldDecoration(
+                    hint: '비밀번호를 입력하세요',
+                    suffix: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textMuted,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '비밀번호 확인',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSub,
+                const SizedBox(height: 20),
+                Text(
+                  '비밀번호 확인',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSub,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _confirmCtrl,
-                obscureText: _obscureConfirm,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  if (!_isSendingCode) _sendVerificationCode();
-                },
-                decoration: _fieldDecoration(
-                  hint: '비밀번호를 다시 입력하세요',
-                  suffix: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: AppColors.textMuted,
-                      size: 22,
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _confirmCtrl,
+                  obscureText: _obscureConfirm,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!_isSendingCode) _sendVerificationCode();
+                  },
+                  decoration: _fieldDecoration(
+                    hint: '비밀번호를 다시 입력하세요',
+                    suffix: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.textMuted,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 32),
-              ItdaPrimaryButton(
-                label: _verificationSent
-                    ? (_isConfirming ? '인증 중...' : '인증 완료')
-                    : (_isSendingCode ? '전송 중...' : '인증번호 받기'),
-                onPressed: _isSendingCode || _isConfirming
-                    ? null
-                    : (_verificationSent
-                          ? _confirmCode
-                          : _sendVerificationCode),
-                borderRadius: _radius,
-              ),
+                const SizedBox(height: 32),
+                ItdaPrimaryButton(
+                  label: _isSendingCode ? '전송 중...' : '인증번호 받기',
+                  onPressed: _isSendingCode ? null : _sendVerificationCode,
+                  borderRadius: _radius,
+                ),
+              ],
             ],
           ),
         ),
