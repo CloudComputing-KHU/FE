@@ -1,0 +1,416 @@
+import 'package:flutter/material.dart';
+
+import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/theme/app_colors.dart';
+
+class FamilyConnectionScreen extends StatefulWidget {
+  const FamilyConnectionScreen({super.key});
+
+  @override
+  State<FamilyConnectionScreen> createState() => _FamilyConnectionScreenState();
+}
+
+class _FamilyConnectionScreenState extends State<FamilyConnectionScreen> {
+  final _controllers = List.generate(4, (_) => TextEditingController());
+  final _focusNodes = List.generate(4, (_) => FocusNode());
+  bool _connected = false;
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    for (final node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _code => _controllers.map((c) => c.text).join();
+
+  void _onCodeChanged(int index, String value) {
+    if (value.length > 1) {
+      final chars = value.toUpperCase().split('');
+      for (var i = 0; i < _controllers.length; i++) {
+        _controllers[i].text = i < chars.length ? chars[i] : '';
+      }
+      _focusNodes[(_controllers.length - 1).clamp(0, chars.length - 1)]
+          .requestFocus();
+      setState(() {});
+      return;
+    }
+
+    _controllers[index].text = value.toUpperCase();
+    _controllers[index].selection = TextSelection.collapsed(
+      offset: _controllers[index].text.length,
+    );
+
+    if (value.isNotEmpty && index < _focusNodes.length - 1) {
+      _focusNodes[index + 1].requestFocus();
+    }
+    setState(() {});
+  }
+
+  void _connect() {
+    if (_code.length < 4) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('초대 코드 4자리를 입력해주세요.')));
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _connected = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ItdaColors.orangePale,
+      appBar: AppBar(
+        backgroundColor: ItdaColors.orangePale,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.chevron_left_rounded,
+            size: 28,
+            color: ItdaColors.text,
+          ),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text(
+          '가족 연결',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+            color: ItdaColors.text,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.info_outline_rounded,
+              color: ItdaColors.text,
+              size: 22,
+            ),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('자녀가 생성한 초대 코드를 입력해주세요.')),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+          children: [
+            if (_connected)
+              _ConnectedView(onConfirm: () => Navigator.of(context).pop())
+            else
+              _CodeInputView(
+                controllers: _controllers,
+                focusNodes: _focusNodes,
+                onChanged: _onCodeChanged,
+                onConnect: _connect,
+                enabled: _code.length == 4,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CodeInputView extends StatelessWidget {
+  const _CodeInputView({
+    required this.controllers,
+    required this.focusNodes,
+    required this.onChanged,
+    required this.onConnect,
+    required this.enabled,
+  });
+
+  final List<TextEditingController> controllers;
+  final List<FocusNode> focusNodes;
+  final void Function(int index, String value) onChanged;
+  final VoidCallback onConnect;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Image.asset(
+          'assets/images/family_invite_parent.png',
+          height: 180,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          '자녀가 알려준 초대 코드를\n입력해주세요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22,
+            height: 1.35,
+            fontWeight: FontWeight.w900,
+            color: ItdaColors.text,
+          ),
+        ),
+        const SizedBox(height: 42),
+        const Text(
+          '초대 코드 입력',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: ItdaColors.text,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (var i = 0; i < controllers.length; i++) ...[
+              Expanded(
+                child: _CodeBox(
+                  controller: controllers[i],
+                  focusNode: focusNodes[i],
+                  onChanged: (value) => onChanged(i, value),
+                ),
+              ),
+              if (i != controllers.length - 1) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+        const SizedBox(height: 28),
+        FilledButton(
+          onPressed: enabled ? onConnect : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: ItdaColors.orange,
+            disabledBackgroundColor: const Color(0xFFF8E5C2),
+            foregroundColor: Colors.white,
+            disabledForegroundColor: ItdaColors.textSub,
+            padding: const EdgeInsets.symmetric(vertical: 17),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text(
+            '연결하기',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+        ),
+        const SizedBox(height: 22),
+        const _NoticePanel(lines: ['코드는 일정 시간이 지나면 만료될 수 있어요.']),
+      ],
+    );
+  }
+}
+
+class _CodeBox extends StatelessWidget {
+  const _CodeBox({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        maxLength: 1,
+        textAlign: TextAlign.center,
+        textCapitalization: TextCapitalization.characters,
+        keyboardType: TextInputType.text,
+        style: const TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+          color: ItdaColors.text,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.zero,
+          enabledBorder: _codeBoxBorder(const Color(0xFFEBD8BA)),
+          focusedBorder: _codeBoxBorder(ItdaColors.orange),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectedView extends StatelessWidget {
+  const _ConnectedView({required this.onConfirm});
+
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 36),
+        const CircleAvatar(
+          radius: 42,
+          backgroundColor: ItdaColors.orange,
+          child: Icon(Icons.check_rounded, color: Colors.white, size: 50),
+        ),
+        const SizedBox(height: 28),
+        const Text(
+          '연결이 완료되었습니다!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: ItdaColors.text,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          '이제 자녀와 사진과 건강 정보를\n공유할 수 있어요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.65,
+            fontWeight: FontWeight.w600,
+            color: ItdaColors.textSub,
+          ),
+        ),
+        const SizedBox(height: 44),
+        const _ConnectedChildCard(),
+        const SizedBox(height: 44),
+        FilledButton(
+          onPressed: onConfirm,
+          style: FilledButton.styleFrom(
+            backgroundColor: ItdaColors.orange,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 17),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text(
+            '확인',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConnectedChildCard extends StatelessWidget {
+  const _ConnectedChildCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE6D4B8)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8EBD4),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Text('👧', style: TextStyle(fontSize: 34)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  '연결된 자녀',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ItdaColors.textSub,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  '${MockItdaData.childDisplayName}님',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    color: ItdaColors.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoticePanel extends StatelessWidget {
+  const _NoticePanel({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEFD7AA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '안내',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: ItdaColors.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final line in lines)
+            Text(
+              line,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.55,
+                fontWeight: FontWeight.w600,
+                color: ItdaColors.textSub,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+OutlineInputBorder _codeBoxBorder(Color color) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: BorderSide(color: color, width: 1.4),
+  );
+}
