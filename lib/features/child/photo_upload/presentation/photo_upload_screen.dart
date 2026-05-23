@@ -1,7 +1,8 @@
 /// 자녀 사진 촬영·예약 전송·업로드 플로우.
 library;
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -35,7 +36,8 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
     super.dispose();
   }
 
-  bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   Future<bool> _ensureGalleryPermission() async {
     if (kIsWeb) return true;
@@ -58,9 +60,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
       if (!ok) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('사진을 고르려면 설정에서 사진·저장소 권한을 허용해 주세요.'),
-            ),
+            const SnackBar(content: Text('사진을 고르려면 설정에서 사진·저장소 권한을 허용해 주세요.')),
           );
         }
         return;
@@ -113,19 +113,22 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
 
   Future<void> _uploadPhoto() async {
     if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('사진을 먼저 선택해 주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사진을 먼저 선택해 주세요.')));
       return;
     }
 
     final caption = _captionCtrl.text.trim().isEmpty
         ? null
         : _captionCtrl.text.trim();
+    final image = _image!;
 
     final result = await uploadChildPhoto(
       ref: ref,
-      filePath: _image!.path,
+      filePath: image.path,
+      fileBytes: await image.readAsBytes(),
+      fileName: image.name,
       caption: caption,
       scheduledAt: _scheduledAt,
     );
@@ -134,8 +137,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.message),
-        backgroundColor:
-            result.ok ? null : ChildDashboardColors.dangerLight,
+        backgroundColor: result.ok ? null : ChildDashboardColors.dangerLight,
       ),
     );
 
@@ -222,12 +224,19 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                                           end: Alignment.bottomCenter,
                                           colors: [
                                             Colors.transparent,
-                                            Colors.black.withValues(alpha: 0.55),
+                                            Colors.black.withValues(
+                                              alpha: 0.55,
+                                            ),
                                           ],
                                         ),
                                       ),
                                       child: const Padding(
-                                        padding: EdgeInsets.fromLTRB(12, 28, 12, 12),
+                                        padding: EdgeInsets.fromLTRB(
+                                          12,
+                                          28,
+                                          12,
+                                          12,
+                                        ),
                                         child: Row(
                                           children: [
                                             Icon(
@@ -285,7 +294,9 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                       hintStyle: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: ChildDashboardColors.textMuted.withValues(alpha: 0.95),
+                        color: ChildDashboardColors.textMuted.withValues(
+                          alpha: 0.95,
+                        ),
                       ),
                       contentPadding: EdgeInsets.zero,
                       isCollapsed: true,
@@ -327,7 +338,8 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () => setState(() => _scheduledAt = null),
+                            onPressed: () =>
+                                setState(() => _scheduledAt = null),
                             style: TextButton.styleFrom(
                               foregroundColor: ChildDashboardColors.textSub,
                             ),
@@ -344,11 +356,16 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
                   isLoading: sending,
                   onPressed: _uploadPhoto,
                   borderRadius: 16,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 16,
+                  ),
                   labelFontWeight: FontWeight.w800,
                   boxShadow: [
                     BoxShadow(
-                      color: ChildDashboardColors.orange.withValues(alpha: 0.35),
+                      color: ChildDashboardColors.orange.withValues(
+                        alpha: 0.35,
+                      ),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
@@ -388,7 +405,8 @@ class _SimpleScheduleSheetState extends State<_SimpleScheduleSheet> {
   late int _minute;
   late _ScheduleQuickPick _quick;
 
-  DateTime get _today => DateTime(widget.now.year, widget.now.month, widget.now.day);
+  DateTime get _today =>
+      DateTime(widget.now.year, widget.now.month, widget.now.day);
 
   @override
   void initState() {

@@ -3,9 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'package:itda/core/router/routes.dart';
 import 'package:itda/features/child/chat/presentation/child_chat_screen.dart';
 import 'package:itda/features/child/dashboard/presentation/child_home_screen.dart';
 import 'package:itda/features/child/health_monitoring/presentation/health_monitoring_screen.dart';
@@ -16,10 +14,6 @@ import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 
 class ChildShell extends ConsumerWidget {
   const ChildShell({super.key});
-
-  void _goRoleGate(BuildContext context) {
-    context.go(AppRoutes.roleSelect);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +28,7 @@ class ChildShell extends ConsumerWidget {
           const ChildHomeScreen(),
           HealthMonitoringScreen(),
           ChildChatScreen(),
-          ChildMyScreen(onRoleSwitch: () => _goRoleGate(context)),
+          const ChildMyScreen(),
           const PhotoUploadScreen(),
         ],
       ),

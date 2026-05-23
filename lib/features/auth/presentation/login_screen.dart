@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/auth/auth_service.dart';
+import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
@@ -47,7 +48,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(authSessionProvider.notifier).state = true;
       ref.invalidate(currentUserProfileProvider);
       if (!mounted) return;
-      context.go(AppRoutes.roleSelect);
+      final role = await TokenStorage.readCurrentRole();
+      if (!mounted) return;
+      if (role == 'child') {
+        context.go(AppRoutes.child);
+      } else if (role == 'parent') {
+        context.go(AppRoutes.parent);
+      } else {
+        await ref.read(authServiceProvider).signOut();
+        ref.read(authSessionProvider.notifier).state = false;
+        ref.invalidate(currentUserProfileProvider);
+        if (mounted) {
+          _showMessage('계정 역할 정보를 확인할 수 없어요. 관리자에게 문의해 주세요.');
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       _showMessage(_loginErrorMessage(error));

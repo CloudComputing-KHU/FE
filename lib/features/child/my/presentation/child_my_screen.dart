@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/router/routes.dart';
 import 'package:itda/features/child/my/presentation/parent_connection_screen.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
@@ -14,6 +16,31 @@ class ChildMyScreen extends ConsumerWidget {
   const ChildMyScreen({super.key, this.onRoleSwitch});
 
   final VoidCallback? onRoleSwitch;
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('로그아웃할까요?'),
+        content: const Text('현재 계정에서 로그아웃하고 로그인 화면으로 이동합니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('로그아웃'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    await ref.read(authServiceProvider).signOut();
+    ref.invalidate(currentUserProfileProvider);
+    if (context.mounted) context.go(AppRoutes.login);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -126,6 +153,14 @@ class ChildMyScreen extends ConsumerWidget {
                         title: '고객센터',
                         onTap: () {},
                       ),
+                      const Divider(height: 1),
+                      _MyTile(
+                        icon: Icons.logout_rounded,
+                        title: '로그아웃',
+                        subtitle: '현재 계정에서 나가기',
+                        color: const Color(0xFFE4473E),
+                        onTap: () => _logout(context, ref),
+                      ),
                     ],
                   ),
                 ),
@@ -182,16 +217,21 @@ class _MyTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.color,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Color? color;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? ChildDashboardColors.orangeDark;
+    final titleColor = color ?? ChildDashboardColors.text;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -205,11 +245,7 @@ class _MyTile extends StatelessWidget {
                 color: ChildDashboardColors.orangeLight,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: ChildDashboardColors.orangeDark,
-                size: 22,
-              ),
+              child: Icon(icon, color: effectiveColor, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -218,10 +254,10 @@ class _MyTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
-                      color: ChildDashboardColors.text,
+                      color: titleColor,
                     ),
                   ),
                   if (subtitle != null) ...[

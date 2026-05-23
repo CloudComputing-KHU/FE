@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/auth/token_storage.dart';
@@ -29,6 +31,8 @@ class PhotoUploadOutcome {
 Future<PhotoUploadOutcome> uploadChildPhoto({
   required WidgetRef ref,
   required String filePath,
+  Uint8List? fileBytes,
+  String? fileName,
   String? caption,
   DateTime? scheduledAt,
 }) async {
@@ -41,6 +45,8 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
           childUserId: userId,
           parentUserId: userId,
           filePath: filePath,
+          fileBytes: fileBytes,
+          fileName: fileName,
           caption: caption,
           scheduledAt: scheduledAt,
         );

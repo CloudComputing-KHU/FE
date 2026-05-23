@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
@@ -24,7 +25,25 @@ class _SplashScreenState extends State<SplashScreen> {
     scheduleMicrotask(() async {
       await Future<void>.delayed(const Duration(milliseconds: 700));
       if (!mounted) return;
-      context.go(AppRoutes.roleSelect);
+      await TokenStorage.ensureLoaded();
+      final hasValidToken = await TokenStorage.hasValidIdToken();
+      if (!mounted) return;
+      if (!hasValidToken) {
+        await TokenStorage.clear();
+        if (mounted) context.go(AppRoutes.login);
+        return;
+      }
+
+      final role = await TokenStorage.readCurrentRole();
+      if (!mounted) return;
+      if (role == 'child') {
+        context.go(AppRoutes.child);
+      } else if (role == 'parent') {
+        context.go(AppRoutes.parent);
+      } else {
+        await TokenStorage.clear();
+        if (mounted) context.go(AppRoutes.login);
+      }
     });
   }
 
@@ -57,9 +76,9 @@ class _SplashScreenState extends State<SplashScreen> {
             Text(
               '잇다',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.text,
-                  ),
+                fontWeight: FontWeight.w900,
+                color: AppColors.text,
+              ),
             ),
           ],
         ),
