@@ -18,16 +18,18 @@ Future<String> _currentParentUserId() async {
 
 // ── 받은 사진 목록 ─────────────────────────────────────────────────────────
 
+final _openedReceivedPhotoIds = <String>{};
+
 class ReceivedPhotosNotifier
     extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
   @override
   Future<List<ParentReceivedPhoto>> build() async {
-    final userId = await _currentParentUserId();
-    return ref.read(parentRepositoryProvider).fetchReceivedPhotos(userId);
+    return _fetchIncomingPhotos();
   }
 
   /// 사진 확인 후 목록에서 제거합니다 (낙관적 업데이트).
   void removeByIds(Set<String> ids) {
+    _openedReceivedPhotoIds.addAll(ids);
     final current = state.valueOrNull;
     if (current == null) return;
     state = AsyncData(current.where((p) => !ids.contains(p.photoId)).toList());
@@ -36,10 +38,33 @@ class ReceivedPhotosNotifier
   /// 서버에서 다시 불러옵니다.
   Future<void> refresh() async {
     state = const AsyncLoading();
+    state = await AsyncValue.guard(_fetchIncomingPhotos);
+  }
+
+  Future<List<ParentReceivedPhoto>> _fetchIncomingPhotos() async {
     final userId = await _currentParentUserId();
-    state = await AsyncValue.guard(
-      () => ref.read(parentRepositoryProvider).fetchReceivedPhotos(userId),
-    );
+    final repository = ref.read(parentRepositoryProvider);
+
+    Object? receivedError;
+    var photos = <ParentReceivedPhoto>[];
+    try {
+      photos = await repository.fetchReceivedPhotos(userId);
+    } catch (error) {
+      receivedError = error;
+    }
+
+    if (photos.isEmpty) {
+      try {
+        final history = await repository.fetchPhotoHistory(userId);
+        photos = history.where(_isRecentIncomingPhoto).toList();
+      } catch (_) {
+        if (receivedError != null) rethrow;
+      }
+    }
+
+    return photos
+        .where((photo) => !_openedReceivedPhotoIds.contains(photo.photoId))
+        .toList();
   }
 }
 
@@ -48,6 +73,19 @@ final receivedPhotosProvider =
       ReceivedPhotosNotifier,
       List<ParentReceivedPhoto>
     >(ReceivedPhotosNotifier.new);
+
+bool _isRecentIncomingPhoto(ParentReceivedPhoto photo) {
+  final createdAt = photo.createdAt.toLocal();
+  final now = DateTime.now();
+  final isSameDay =
+      createdAt.year == now.year &&
+      createdAt.month == now.month &&
+      createdAt.day == now.day;
+  if (isSameDay) return true;
+
+  final elapsed = now.difference(createdAt);
+  return !elapsed.isNegative && elapsed.inHours < 24;
+}
 
 // ── 지난 사진 이력 ─────────────────────────────────────────────────────────
 

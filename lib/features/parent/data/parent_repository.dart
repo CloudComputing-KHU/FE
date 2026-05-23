@@ -83,7 +83,8 @@ class ParentRepository {
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   /// 지난 사진 이력을 조회합니다 (자녀가 보낸 전체 이력).
@@ -95,6 +96,7 @@ class ParentRepository {
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 }
