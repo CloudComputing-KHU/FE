@@ -12,6 +12,7 @@ import 'package:itda/features/parent/home/presentation/parent_photo_quest_flow.d
 import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/features/parent/menu/presentation/parent_settings_screen.dart';
 import 'package:itda/features/parent/menu/presentation/past_photos_screen.dart';
+import 'package:itda/features/shared/providers/photo_reaction_provider.dart';
 
 /// 부모 홈 본문 텍스트 색.
 const _pText = Color(0xFF2D1F0A);
@@ -43,6 +44,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   void initState() {
     super.initState();
     _initPulse();
+    Future.microtask(() => ref.invalidate(receivedPhotosProvider));
   }
 
   @override
@@ -57,8 +59,10 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
   }
 
-  Future<void> _openPhoto(ParentReceivedPhoto photo,
-      List<ParentReceivedPhoto> photos) async {
+  Future<void> _openPhoto(
+    ParentReceivedPhoto photo,
+    List<ParentReceivedPhoto> photos,
+  ) async {
     if (photos.isEmpty) return;
     final queue = photos
         .map(
@@ -72,16 +76,24 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           ),
         )
         .toList();
-    final idx =
-        queue.indexWhere((p) => p.id == photo.photoId).clamp(0, queue.length - 1);
-    final removedIds = await Navigator.of(context).push<Set<String>?>(
-      MaterialPageRoute<Set<String>?>(
+    final idx = queue
+        .indexWhere((p) => p.id == photo.photoId)
+        .clamp(0, queue.length - 1);
+    final result = await Navigator.of(context).push<ParentPhotoReactionResult?>(
+      MaterialPageRoute<ParentPhotoReactionResult?>(
         builder: (_) => ParentPhotoQuestFlow(photos: queue, initialIndex: idx),
       ),
     );
     if (!mounted) return;
-    if (removedIds != null && removedIds.isNotEmpty) {
-      ref.read(receivedPhotosProvider.notifier).removeByIds(removedIds);
+    if (result != null && result.photoIds.isNotEmpty) {
+      ref
+          .read(photoReactionProvider.notifier)
+          .addReaction(
+            photoIds: result.photoIds,
+            label: result.label,
+            isVoice: result.isVoice,
+          );
+      ref.read(receivedPhotosProvider.notifier).removeByIds(result.photoIds);
     }
   }
 
@@ -99,9 +111,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           stepIndex: step,
           onAnswered: (summary) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('「$summary」로 응답했어요.')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('「$summary」로 응답했어요.')));
           },
         ),
       ),
@@ -138,7 +150,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
                           onTapNewPhotos: null,
                           onTapPastPhotos: _openPastPhotos,
                         ),
-                        error: (_, __) => _BigPhotoCard(
+                        error: (_, _) => _BigPhotoCard(
                           photoCount: 0,
                           childName: MockItdaData.childDisplayName,
                           hasNewPhotos: false,
@@ -181,10 +193,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
 
 /// 상단 인사 한 줄과 설정 버튼.
 class _ParentV4Header extends StatelessWidget {
-  const _ParentV4Header({
-    required this.welcomeName,
-    required this.onSettings,
-  });
+  const _ParentV4Header({required this.welcomeName, required this.onSettings});
 
   final String welcomeName;
   final VoidCallback onSettings;
@@ -234,7 +243,11 @@ class _ParentV4Header extends StatelessWidget {
                 child: const SizedBox(
                   width: 48,
                   height: 48,
-                  child: Icon(Icons.settings_rounded, size: 24, color: _pTextSub),
+                  child: Icon(
+                    Icons.settings_rounded,
+                    size: 24,
+                    color: _pTextSub,
+                  ),
                 ),
               ),
             ),
@@ -267,8 +280,9 @@ class _BigPhotoCard extends StatelessWidget {
     final onTap = hasNewPhotos ? onTapNewPhotos : onTapPastPhotos;
 
     final borderColor = hasNewPhotos ? ItdaColors.orange : ItdaColors.border;
-    final shadowColor =
-        hasNewPhotos ? ItdaColors.orange.withValues(alpha: 0.18) : const Color(0x14000000);
+    final shadowColor = hasNewPhotos
+        ? ItdaColors.orange.withValues(alpha: 0.18)
+        : const Color(0x14000000);
 
     return Material(
       color: Colors.transparent,
@@ -303,7 +317,9 @@ class _BigPhotoCard extends StatelessWidget {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: hasNewPhotos ? _buildNewPhotoColumn() : _buildPastPhotoColumn(),
+                  child: hasNewPhotos
+                      ? _buildNewPhotoColumn()
+                      : _buildPastPhotoColumn(),
                 ),
               ),
             ],
@@ -386,10 +402,7 @@ class _BigPhotoCard extends StatelessWidget {
 }
 
 class _PhotoBadge extends StatelessWidget {
-  const _PhotoBadge({
-    required this.count,
-    this.pulseAnimation,
-  });
+  const _PhotoBadge({required this.count, this.pulseAnimation});
 
   final int count;
   final Animation<double>? pulseAnimation;
@@ -450,10 +463,7 @@ class _PhotoBadge extends StatelessWidget {
 
 /// 건강 일일 퀘스트 진행 카드(0/3 ~ 3/3).
 class _BigHealthCard extends StatelessWidget {
-  const _BigHealthCard({
-    required this.completedSteps,
-    required this.onTap,
-  });
+  const _BigHealthCard({required this.completedSteps, required this.onTap});
 
   /// 완료한 답변 수 (0~3)
   final int completedSteps;
@@ -517,7 +527,10 @@ class _BigHealthCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: _emojiSize, height: 1)),
+                  Text(
+                    emoji,
+                    style: const TextStyle(fontSize: _emojiSize, height: 1),
+                  ),
                   const SizedBox(height: 18),
                   Text(
                     title,
@@ -577,17 +590,11 @@ class _HealthQuestProgressRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _ProgressSegment(color: _colorForIndex(0)),
-        ),
+        Expanded(child: _ProgressSegment(color: _colorForIndex(0))),
         const SizedBox(width: 6),
-        Expanded(
-          child: _ProgressSegment(color: _colorForIndex(1)),
-        ),
+        Expanded(child: _ProgressSegment(color: _colorForIndex(1))),
         const SizedBox(width: 6),
-        Expanded(
-          child: _ProgressSegment(color: _colorForIndex(2)),
-        ),
+        Expanded(child: _ProgressSegment(color: _colorForIndex(2))),
       ],
     );
   }

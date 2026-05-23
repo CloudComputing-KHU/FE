@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
+import 'package:itda/core/auth/auth_service.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
 import 'package:itda/shared/widgets/itda_primary_button.dart';
 
-/// 로그인 화면. ID 공급자(Cognito 등) 연동 시 폼 검증·API 호출을 연결합니다.
-class LoginScreen extends StatefulWidget {
+/// 로그인 화면.
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -26,23 +30,53 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    // 데모: 로그인 후 역할 선택(자녀/부모)으로 이동. 추후 API 검증·토큰 저장 연동.
-    context.go(AppRoutes.roleSelect);
+  Future<void> _submit() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('이메일과 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(authServiceProvider)
+          .login(email: email, password: password);
+      ref.read(authSessionProvider.notifier).state = true;
+      ref.invalidate(currentUserProfileProvider);
+      if (!mounted) return;
+      context.go(AppRoutes.roleSelect);
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_loginErrorMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _loginErrorMessage(Object error) {
+    return AuthService.messageFromError(
+      error,
+      fallback: '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.',
+    );
   }
 
   static const _radius = 14.0;
 
-  InputDecoration _fieldDecoration({
-    required String hint,
-    Widget? suffix,
-  }) {
+  InputDecoration _fieldDecoration({required String hint, Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
-        fontSize: 15,
-        color: AppColors.textMuted,
-      ),
+      hintStyle: const TextStyle(fontSize: 15, color: AppColors.textMuted),
       suffixIcon: suffix,
       filled: true,
       fillColor: Colors.white,
@@ -125,9 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 textInputAction: TextInputAction.next,
-                decoration: _fieldDecoration(
-                  hint: '이메일을 입력하세요',
-                ),
+                decoration: _fieldDecoration(hint: '이메일을 입력하세요'),
               ),
               const SizedBox(height: 20),
               Text(
@@ -143,7 +175,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _passwordCtrl,
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(),
+                onSubmitted: (_) {
+                  if (!_isSubmitting) _submit();
+                },
                 decoration: _fieldDecoration(
                   hint: '비밀번호를 입력하세요',
                   suffix: IconButton(
@@ -166,28 +200,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('비밀번호 찾기는 준비 중이에요.'),
-                      ),
+                      const SnackBar(content: Text('비밀번호 찾기는 준비 중이에요.')),
                     );
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.orange,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
                   child: const Text(
                     '비밀번호를 잊으셨나요?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
               ItdaPrimaryButton(
-                label: '로그인',
-                onPressed: _submit,
+                label: _isSubmitting ? '로그인 중...' : '로그인',
+                onPressed: _isSubmitting ? null : _submit,
                 borderRadius: _radius,
               ),
               const SizedBox(height: 28),

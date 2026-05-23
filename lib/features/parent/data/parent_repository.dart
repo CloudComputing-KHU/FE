@@ -2,14 +2,19 @@ import 'package:dio/dio.dart';
 
 import 'package:itda/core/api/api_client.dart';
 import 'package:itda/core/api/api_endpoints.dart';
+import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/parent/data/parent_models.dart';
+import 'package:itda/services/dementia_service.dart';
 
 /// parent 기능 전체의 API 호출을 담당합니다.
 /// UI 레이어는 이 클래스만 의존하고, Dio·엔드포인트 상수는 여기서만 씁니다.
 class ParentRepository {
-  ParentRepository() : _dio = ApiClient.create();
+  ParentRepository()
+    : _dio = ApiClient.create(),
+      _dementia = DementiaService(ApiClient.create());
 
   final Dio _dio;
+  final DementiaService _dementia;
 
   // ── Questions ──────────────────────────────────────────────────────────────
 
@@ -63,6 +68,10 @@ class ParentRepository {
     return ParentVoiceUploadResult.fromJson(res.data!);
   }
 
+  Future<DementiaAnalysisResponse> requestDementiaAnalysis(String answerId) {
+    return _dementia.requestAnalysis(answerId: answerId);
+  }
+
   // ── Photos ─────────────────────────────────────────────────────────────────
 
   /// 부모가 받은 사진 목록을 최신순으로 조회합니다.
@@ -74,7 +83,8 @@ class ParentRepository {
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   /// 지난 사진 이력을 조회합니다 (자녀가 보낸 전체 이력).
@@ -86,6 +96,7 @@ class ParentRepository {
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 }

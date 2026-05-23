@@ -21,23 +21,21 @@ class HealthVoiceRecordSheet extends ConsumerStatefulWidget {
   final String questionId;
   final String questionType;
 
-  static Future<void> show(
+  static Future<bool?> show(
     BuildContext context, {
     required String questionId,
     String? questionType,
   }) {
     final type = questionType ?? 'health';
-    return showModalBottomSheet<void>(
+    return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       isDismissible: true,
       enableDrag: true,
-      builder: (ctx) => HealthVoiceRecordSheet(
-        questionId: questionId,
-        questionType: type,
-      ),
+      builder: (ctx) =>
+          HealthVoiceRecordSheet(questionId: questionId, questionType: type),
     );
   }
 
@@ -149,12 +147,14 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
           content: Text(ok ? '음성 답변이 전송됐어요!' : '전송에 실패했어요. 다시 시도해 주세요.'),
         ),
       );
+      Navigator.of(context).pop(ok);
+      return;
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('녹음 파일을 저장하지 못했어요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('녹음 파일을 저장하지 못했어요.')));
     }
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(false);
   }
 
   @override
@@ -231,13 +231,19 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: List.generate(28, (i) {
                             final t = _waveCtrl.value * 2 * math.pi;
-                            final h = 6 + 26 * (0.5 + 0.5 * math.sin(t + i * 0.42)).abs();
+                            final h =
+                                6 +
+                                26 * (0.5 + 0.5 * math.sin(t + i * 0.42)).abs();
                             return Container(
                               width: 3,
                               height: h.clamp(6.0, 40.0),
-                              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 1.5,
+                              ),
                               decoration: BoxDecoration(
-                                color: ItdaColors.orange.withValues(alpha: 0.55),
+                                color: ItdaColors.orange.withValues(
+                                  alpha: 0.55,
+                                ),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             );
@@ -256,7 +262,10 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
                           borderRadius: BorderRadius.circular(26),
                           onTap: _busy ? null : _resetRecording,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             child: Text(
                               '다시하기',
                               style: TextStyle(
@@ -278,7 +287,10 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
                           borderRadius: BorderRadius.circular(29),
                           onTap: _busy ? null : _send,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 15,
+                            ),
                             child: _busy
                                 ? const SizedBox(
                                     width: 22,
@@ -327,7 +339,9 @@ class _MicRings extends StatelessWidget {
             height: r,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey.shade200.withValues(alpha: 0.35 + (72 - r) * 0.004),
+              color: Colors.grey.shade200.withValues(
+                alpha: 0.35 + (72 - r) * 0.004,
+              ),
               border: Border.all(color: Colors.grey.shade300, width: 1.5),
             ),
           ),

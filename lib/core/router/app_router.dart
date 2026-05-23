@@ -42,10 +42,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.child,
-        builder: (context, state) => Theme(
-          data: AppTheme.childTheme(),
-          child: const ChildShell(),
-        ),
+        builder: (context, state) =>
+            Theme(data: AppTheme.childTheme(), child: const ChildShell()),
       ),
       GoRoute(
         path: AppRoutes.childNotifications,

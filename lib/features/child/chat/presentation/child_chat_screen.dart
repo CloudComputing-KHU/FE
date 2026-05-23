@@ -8,6 +8,7 @@ import 'package:itda/features/child/photo_upload/providers/upload_provider.dart'
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
+import 'package:itda/features/shared/providers/photo_reaction_provider.dart';
 
 /// 소통 탭. 자녀가 보낸 사진은 BE의 `GET /photos/history`로 가져오고,
 /// 부모의 반응(이모지·음성)은 BE에 매칭되는 API가 없어 데모 데이터를 유지합니다.
@@ -32,6 +33,7 @@ class ChildChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final parentName = MockItdaData.parentDisplayName;
     final sentAsync = ref.watch(sentPhotosProvider);
+    final reactionsByPhotoId = ref.watch(photoReactionProvider);
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
@@ -96,7 +98,10 @@ class ChildChatScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                final entries = _buildEntriesFromPhotos(photos);
+                final entries = _buildEntriesFromPhotos(
+                  photos,
+                  reactionsByPhotoId,
+                );
                 return SliverList(
                   delegate: SliverChildListDelegate(
                     _buildTimelineList(
@@ -114,12 +119,18 @@ class ChildChatScreen extends ConsumerWidget {
   }
 }
 
-List<ChildCommEntry> _buildEntriesFromPhotos(List<Photo> photos) {
+List<ChildCommEntry> _buildEntriesFromPhotos(
+  List<Photo> photos,
+  Map<String, List<PhotoReaction>> reactionsByPhotoId,
+) {
   final out = <ChildCommEntry>[];
   String? currentDateKey;
+  final sortedPhotos = List<Photo>.of(photos)
+    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-  for (final p in photos) {
-    final dateKey = '${p.createdAt.year}-${p.createdAt.month}-${p.createdAt.day}';
+  for (final p in sortedPhotos) {
+    final dateKey =
+        '${p.createdAt.year}-${p.createdAt.month}-${p.createdAt.day}';
     if (dateKey != currentDateKey) {
       out.add(ChildCommDateDivider(_dateLabel(p.createdAt)));
       currentDateKey = dateKey;
@@ -131,6 +142,24 @@ List<ChildCommEntry> _buildEntriesFromPhotos(List<Photo> photos) {
         time: _timeLabel(p.createdAt),
       ),
     );
+    for (final reaction
+        in reactionsByPhotoId[p.id] ?? const <PhotoReaction>[]) {
+      if (reaction.isVoice) {
+        out.add(
+          ChildCommParentVoiceNote(
+            time: _timeLabel(reaction.createdAt),
+            durationLabel: reaction.durationLabel,
+          ),
+        );
+      } else {
+        out.add(
+          ChildCommParentQuickReaction(
+            label: reaction.label,
+            time: _timeLabel(reaction.createdAt),
+          ),
+        );
+      }
+    }
   }
   return out;
 }
@@ -174,10 +203,12 @@ List<Widget> _buildTimelineList({
       out.add(_MomPendingRow(parentName: parentName, time: e.time));
       out.add(const SizedBox(height: 18));
       i++;
-    } else if (e is ChildCommParentQuickReaction || e is ChildCommParentVoiceNote) {
+    } else if (e is ChildCommParentQuickReaction ||
+        e is ChildCommParentVoiceNote) {
       final group = <ChildCommEntry>[];
       while (i < entries.length &&
-          (entries[i] is ChildCommParentQuickReaction || entries[i] is ChildCommParentVoiceNote)) {
+          (entries[i] is ChildCommParentQuickReaction ||
+              entries[i] is ChildCommParentVoiceNote)) {
         group.add(entries[i]);
         i++;
       }
@@ -279,7 +310,10 @@ class _MePhotoCaptionBlock extends StatelessWidget {
               Flexible(
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: _photoMaxW),
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 9,
+                  ),
                   decoration: const BoxDecoration(
                     color: ItdaColors.orange,
                     borderRadius: ChildChatScreen._radiusMeBubble,
@@ -428,15 +462,33 @@ class _PhotoGridHtml extends StatelessWidget {
         children: [
           Row(
             children: [
-              _CommPhotoTile(url: urls[0], width: s, height: s, radius: 8, lightBackground: false),
+              _CommPhotoTile(
+                url: urls[0],
+                width: s,
+                height: s,
+                radius: 8,
+                lightBackground: false,
+              ),
               SizedBox(width: gap),
-              _CommPhotoTile(url: urls[1], width: s, height: s, radius: 8, lightBackground: false),
+              _CommPhotoTile(
+                url: urls[1],
+                width: s,
+                height: s,
+                radius: 8,
+                lightBackground: false,
+              ),
             ],
           ),
           SizedBox(height: gap),
           Row(
             children: [
-              _CommPhotoTile(url: urls[2], width: s, height: s, radius: 8, lightBackground: false),
+              _CommPhotoTile(
+                url: urls[2],
+                width: s,
+                height: s,
+                radius: 8,
+                lightBackground: false,
+              ),
               SizedBox(width: gap),
               more > 0
                   ? _CommPhotoTile(
@@ -447,7 +499,13 @@ class _PhotoGridHtml extends StatelessWidget {
                       overlayText: '+$more',
                       lightBackground: false,
                     )
-                  : _CommPhotoTile(url: urls[3], width: s, height: s, radius: 8, lightBackground: false),
+                  : _CommPhotoTile(
+                      url: urls[3],
+                      width: s,
+                      height: s,
+                      radius: 8,
+                      lightBackground: false,
+                    ),
             ],
           ),
         ],
@@ -535,10 +593,7 @@ class _CommPhotoTile extends StatelessWidget {
 }
 
 class _MomPendingRow extends StatelessWidget {
-  const _MomPendingRow({
-    required this.parentName,
-    required this.time,
-  });
+  const _MomPendingRow({required this.parentName, required this.time});
 
   final String parentName;
   final String time;
@@ -590,10 +645,7 @@ class _MomPendingRow extends StatelessWidget {
 }
 
 class _MomReactionCardRow extends StatelessWidget {
-  const _MomReactionCardRow({
-    required this.parentName,
-    required this.entries,
-  });
+  const _MomReactionCardRow({required this.parentName, required this.entries});
 
   final String parentName;
   final List<ChildCommEntry> entries;
@@ -755,7 +807,11 @@ class _VoiceMessageStrip extends StatelessWidget {
               color: ItdaColors.orange,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(

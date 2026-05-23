@@ -42,8 +42,12 @@ class ParentHealthQuestScreen extends ConsumerWidget {
   /// 빠른 답변 선택 후 호출
   final ValueChanged<String> onAnswered;
 
-  void _pickQuick(BuildContext context, WidgetRef ref, String summary,
-      String questionId) async {
+  void _pickQuick(
+    BuildContext context,
+    WidgetRef ref,
+    String summary,
+    String questionId,
+  ) async {
     final type = questTypeForStep(stepIndex);
     final ok = await submitParentAnswer(
       ref: ref,
@@ -140,7 +144,10 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('🌼', style: TextStyle(fontSize: 84, height: 1)),
+                        const Text(
+                          '🌼',
+                          style: TextStyle(fontSize: 84, height: 1),
+                        ),
                         const SizedBox(height: 20),
                         Text(
                           '모두 완료!',
@@ -229,13 +236,15 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
                       child: Center(
                         child: questionAsync.when(
                           loading: () => const CircularProgressIndicator(
                             color: ItdaColors.orange,
                           ),
-                          error: (_, __) => Text(
+                          error: (_, _) => Text(
                             _fallbackQuestionText(step),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
@@ -285,7 +294,8 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                         child: _QuickReplyCell(
                           borderColor: quicks[0].borderColor,
                           onTap: () {
-                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            final qId =
+                                questionAsync.valueOrNull?.questionId ?? type;
                             _pickQuick(context, ref, quicks[0].summary, qId);
                           },
                           child: Text(
@@ -305,7 +315,8 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                         child: _QuickReplyCell(
                           borderColor: quicks[1].borderColor,
                           onTap: () {
-                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            final qId =
+                                questionAsync.valueOrNull?.questionId ?? type;
                             _pickQuick(context, ref, quicks[1].summary, qId);
                           },
                           child: Text(
@@ -330,7 +341,8 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                         child: _QuickReplyCell(
                           borderColor: quicks[2].borderColor,
                           onTap: () {
-                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            final qId =
+                                questionAsync.valueOrNull?.questionId ?? type;
                             _pickQuick(context, ref, quicks[2].summary, qId);
                           },
                           child: Text(
@@ -350,7 +362,8 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                         child: _QuickReplyCell(
                           borderColor: quicks[3].borderColor,
                           onTap: () {
-                            final qId = questionAsync.valueOrNull?.questionId ?? type;
+                            final qId =
+                                questionAsync.valueOrNull?.questionId ?? type;
                             _pickQuick(context, ref, quicks[3].summary, qId);
                           },
                           child: Text(
@@ -384,7 +397,8 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          final qId = questionAsync.valueOrNull?.questionId ?? type;
+                          final qId =
+                              questionAsync.valueOrNull?.questionId ?? type;
                           _openVoice(context, qId);
                         },
                         borderRadius: BorderRadius.circular(18),
@@ -393,7 +407,11 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+                              Icon(
+                                Icons.mic_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
                               SizedBox(width: 12),
                               Text(
                                 '목소리로 답하기',

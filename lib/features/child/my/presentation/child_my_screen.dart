@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
@@ -7,14 +9,19 @@ import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
 
 /// 마이 탭 — 자녀 셸 팔레트·탭 헤더(가운데 제목)와 맞춤
-class ChildMyScreen extends StatelessWidget {
+class ChildMyScreen extends ConsumerWidget {
   const ChildMyScreen({super.key, this.onRoleSwitch});
 
   final VoidCallback? onRoleSwitch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final displayName = profile?.displayName ?? MockItdaData.childDisplayName;
+    final email = profile?.email ?? '이메일 정보 없음';
+    final roleText =
+        '${profile?.accountLabel ?? '자녀 계정'} · ${profile?.roleLabel ?? '자녀용 앱'}';
 
     return ColoredBox(
       color: ChildDashboardColors.orangePale,
@@ -38,7 +45,9 @@ class ChildMyScreen extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: ChildDashboardColors.orange.withValues(alpha: 0.22),
+                        color: ChildDashboardColors.orange.withValues(
+                          alpha: 0.22,
+                        ),
                         blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
@@ -63,7 +72,7 @@ class ChildMyScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${MockItdaData.childDisplayName}님',
+                              '$displayName님',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
@@ -72,7 +81,7 @@ class ChildMyScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'child@itda.app',
+                              email,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.92),
@@ -80,7 +89,7 @@ class ChildMyScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              '보호자 계정 · 자녀용 앱',
+                              roleText,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -189,7 +198,11 @@ class _MyTile extends StatelessWidget {
                 color: ChildDashboardColors.orangeLight,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: ChildDashboardColors.orangeDark, size: 22),
+              child: Icon(
+                icon,
+                color: ChildDashboardColors.orangeDark,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -217,7 +230,10 @@ class _MyTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: ChildDashboardColors.textMuted),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: ChildDashboardColors.textMuted,
+            ),
           ],
         ),
       ),

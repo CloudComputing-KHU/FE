@@ -6,12 +6,21 @@ import 'package:itda/features/parent/home/presentation/health_voice_record_sheet
 import 'package:itda/features/parent/home/presentation/parent_photo_view_widgets.dart';
 
 /// 부모 사진 확인 플로우. 캐러셀·빠른 반응·음성 녹음; 마지막 장에서만 확인을 활성화합니다.
+class ParentPhotoReactionResult {
+  const ParentPhotoReactionResult({
+    required this.photoIds,
+    required this.label,
+    this.isVoice = false,
+  });
+
+  final Set<String> photoIds;
+  final String label;
+  final bool isVoice;
+}
+
 class ParentPhotoQuestFlow extends StatefulWidget {
-  ParentPhotoQuestFlow({
-    super.key,
-    required this.photos,
-    this.initialIndex = 0,
-  }) : assert(photos.isNotEmpty);
+  ParentPhotoQuestFlow({super.key, required this.photos, this.initialIndex = 0})
+    : assert(photos.isNotEmpty);
 
   final List<ParentPendingPhoto> photos;
   final int initialIndex;
@@ -53,9 +62,15 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
     );
     _panelCtrl = ctrl;
     final curved = CurvedAnimation(parent: ctrl, curve: Curves.easeOutCubic);
-    _photoSlide = Tween<Offset>(begin: Offset.zero, end: const Offset(-0.22, 0)).animate(curved);
+    _photoSlide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.22, 0),
+    ).animate(curved);
     _photoFade = Tween<double>(begin: 1, end: 0).animate(curved);
-    _reactionSlide = Tween<Offset>(begin: const Offset(0.22, 0), end: Offset.zero).animate(curved);
+    _reactionSlide = Tween<Offset>(
+      begin: const Offset(0.22, 0),
+      end: Offset.zero,
+    ).animate(curved);
     _reactionFade = Tween<double>(begin: 0, end: 1).animate(curved);
   }
 
@@ -110,7 +125,10 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
             ParentPhotoViewHeader(
               dateText: widget.photos[_pageIndex].dateLabel,
               dotCount: _sameDayIndices.length,
-              activeDotIndex: _photoIdxInDay.clamp(0, _sameDayIndices.length - 1),
+              activeDotIndex: _photoIdxInDay.clamp(
+                0,
+                _sameDayIndices.length - 1,
+              ),
               onBack: () {
                 final c = _panelCtrl;
                 if (c != null && c.value > 0.01) {
@@ -153,7 +171,8 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                     photos: widget.photos,
                                     pageController: _pageController,
                                     pageIndex: _pageIndex,
-                                    onPageChanged: (i) => setState(() => _pageIndex = i),
+                                    onPageChanged: (i) =>
+                                        setState(() => _pageIndex = i),
                                     onConfirm: _openReactionPanel,
                                     onPrev: () => _goPage(_pageIndex - 1),
                                     onNext: () => _goPage(_pageIndex + 1),
@@ -169,9 +188,11 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                   ignoring: v < 0.65,
                                   child: _ReactionPane(
                                     photos: widget.photos,
-                                    onQuickReaction: (summary) {
+                                    onReaction: (summary, {isVoice = false}) {
                                       if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text(
                                             '반응 전송: $summary\n${MockItdaData.childDisplayName}에게 전달됐어요!',
@@ -179,7 +200,13 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                         ),
                                       );
                                       Navigator.of(context).pop(
-                                        widget.photos.map((p) => p.id).toSet(),
+                                        ParentPhotoReactionResult(
+                                          photoIds: widget.photos
+                                              .map((p) => p.id)
+                                              .toSet(),
+                                          label: summary,
+                                          isVoice: isVoice,
+                                        ),
                                       );
                                     },
                                   ),
@@ -314,15 +341,19 @@ class _ConfirmQuestButton extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check_rounded, size: 22, color: Colors.white.withValues(alpha: 0.95)),
+                    Icon(
+                      Icons.check_rounded,
+                      size: 22,
+                      color: Colors.white.withValues(alpha: 0.95),
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       '다 봤어요 · 반응 남기기',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 19,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 19,
+                      ),
                     ),
                   ],
                 ),
@@ -337,13 +368,10 @@ class _ConfirmQuestButton extends StatelessWidget {
 
 /// 하단 반응 패널: 썸네일, 빠른 반응 그리드, 목소리 답하기.
 class _ReactionPane extends StatelessWidget {
-  const _ReactionPane({
-    required this.photos,
-    required this.onQuickReaction,
-  });
+  const _ReactionPane({required this.photos, required this.onReaction});
 
   final List<ParentPendingPhoto> photos;
-  final ValueChanged<String> onQuickReaction;
+  final void Function(String summary, {bool isVoice}) onReaction;
 
   @override
   Widget build(BuildContext context) {
@@ -417,7 +445,7 @@ class _ReactionPane extends StatelessWidget {
                       emoji: presets[0].emoji,
                       label: presets[0].label,
                       positive: presets[0].positive,
-                      onTap: () => onQuickReaction(presets[0].label),
+                      onTap: () => onReaction(presets[0].label),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -426,7 +454,7 @@ class _ReactionPane extends StatelessWidget {
                       emoji: presets[1].emoji,
                       label: presets[1].label,
                       positive: presets[1].positive,
-                      onTap: () => onQuickReaction(presets[1].label),
+                      onTap: () => onReaction(presets[1].label),
                     ),
                   ),
                 ],
@@ -440,7 +468,7 @@ class _ReactionPane extends StatelessWidget {
                       emoji: presets[2].emoji,
                       label: presets[2].label,
                       positive: presets[2].positive,
-                      onTap: () => onQuickReaction(presets[2].label),
+                      onTap: () => onReaction(presets[2].label),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -449,7 +477,7 @@ class _ReactionPane extends StatelessWidget {
                       emoji: presets[3].emoji,
                       label: presets[3].label,
                       positive: presets[3].positive,
-                      onTap: () => onQuickReaction(presets[3].label),
+                      onTap: () => onReaction(presets[3].label),
                     ),
                   ),
                 ],
@@ -476,11 +504,16 @@ class _ReactionPane extends StatelessWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => HealthVoiceRecordSheet.show(
-                  context,
-                  questionId: 'photo_voice',
-                  questionType: 'health',
-                ),
+                onTap: () async {
+                  final sent = await HealthVoiceRecordSheet.show(
+                    context,
+                    questionId: 'photo_voice',
+                    questionType: 'health',
+                  );
+                  if (sent == true) {
+                    onReaction('목소리 반응', isVoice: true);
+                  }
+                },
                 borderRadius: BorderRadius.circular(18),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
@@ -540,7 +573,11 @@ class _PreviewThumb extends StatelessWidget {
         errorBuilder: (_, _, _) => Container(
           color: ItdaColors.orangeLight,
           alignment: Alignment.center,
-          child: const Icon(Icons.image_outlined, size: 28, color: ItdaColors.textMuted),
+          child: const Icon(
+            Icons.image_outlined,
+            size: 28,
+            color: ItdaColors.textMuted,
+          ),
         ),
       ),
     );

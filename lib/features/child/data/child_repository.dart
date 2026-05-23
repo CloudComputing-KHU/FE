@@ -11,9 +11,9 @@ import 'package:itda/services/quest_service.dart';
 /// UI 레이어는 이 클래스만 의존하고, 내부적으로 [QuestService]·[PhotoApiService]·[DementiaService]를 사용합니다.
 class ChildRepository {
   ChildRepository()
-      : _quest = QuestService(ApiClient.create()),
-        _photo = PhotoApiService(ApiClient.create()),
-        _dementia = DementiaService(ApiClient.create());
+    : _quest = QuestService(ApiClient.create()),
+      _photo = PhotoApiService(ApiClient.create()),
+      _dementia = DementiaService(ApiClient.create());
 
   final QuestService _quest;
   final PhotoApiService _photo;
@@ -64,13 +64,9 @@ class ChildRepository {
   /// 부모의 음성 답변에 대한 치매 위험 분석을 요청합니다.
   /// 비동기 분석이라 즉시 [DementiaAnalysisResponse]를 반환하며 status는 `pending`입니다.
   Future<DementiaAnalysisResponse> requestDementiaAnalysis({
-    required String parentUserId,
     required String answerId,
   }) {
-    return _dementia.requestAnalysis(
-      userId: parentUserId,
-      answerId: answerId,
-    );
+    return _dementia.requestAnalysis(answerId: answerId);
   }
 
   /// 분석 결과 단건 상세 조회.
@@ -78,10 +74,8 @@ class ChildRepository {
     return _dementia.getAnalysis(analysisId);
   }
 
-  /// 부모의 치매 분석 이력을 최신순으로 조회합니다.
-  Future<List<DementiaAnalysisItem>> fetchParentDementiaHistory(
-    String parentUserId,
-  ) {
-    return _dementia.getUserAnalyses(parentUserId);
+  /// 로그인 사용자의 치매 분석 이력을 최신순으로 조회합니다.
+  Future<List<DementiaAnalysisItem>> fetchParentDementiaHistory() {
+    return _dementia.getUserAnalyses();
   }
 }
