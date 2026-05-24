@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import 'package:itda/core/api/api_endpoints.dart';
@@ -23,21 +25,29 @@ class PhotoApiService {
     required String senderUserId,
     required String receiverUserId,
     required String filePath,
+    Uint8List? fileBytes,
+    String? fileName,
     String? caption,
     DateTime? scheduledAt,
   }) async {
+    final file = fileBytes == null
+        ? await MultipartFile.fromFile(filePath)
+        : MultipartFile.fromBytes(
+            fileBytes,
+            filename: fileName == null || fileName.isEmpty
+                ? 'photo.jpg'
+                : fileName,
+          );
+
     final formData = FormData.fromMap({
       'sender_user_id': senderUserId,
       'receiver_user_id': receiverUserId,
-      'file': await MultipartFile.fromFile(filePath),
-      if (caption != null) 'caption': caption,
+      'file': file,
+      'caption': ?caption,
       if (scheduledAt != null) 'scheduled_at': scheduledAt.toIso8601String(),
     });
 
-    final response = await _dio.post(
-      ApiEndpoints.photos,
-      data: formData,
-    );
+    final response = await _dio.post(ApiEndpoints.photos, data: formData);
 
     return Photo.fromJson(response.data as Map<String, dynamic>);
   }
@@ -49,8 +59,6 @@ class PhotoApiService {
       queryParameters: {'user_id': userId},
     );
     final list = response.data as List<dynamic>;
-    return list
-        .map((e) => Photo.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return list.map((e) => Photo.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

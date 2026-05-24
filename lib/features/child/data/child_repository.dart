@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:itda/core/api/api_client.dart';
 import 'package:itda/core/models/answer_item.dart';
 import 'package:itda/core/models/dementia_analysis.dart';
@@ -42,6 +44,8 @@ class ChildRepository {
     required String childUserId,
     required String parentUserId,
     required String filePath,
+    Uint8List? fileBytes,
+    String? fileName,
     String? caption,
     DateTime? scheduledAt,
   }) {
@@ -49,6 +53,8 @@ class ChildRepository {
       senderUserId: childUserId,
       receiverUserId: parentUserId,
       filePath: filePath,
+      fileBytes: fileBytes,
+      fileName: fileName,
       caption: caption,
       scheduledAt: scheduledAt,
     );
