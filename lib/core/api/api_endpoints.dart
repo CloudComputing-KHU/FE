@@ -61,4 +61,11 @@ abstract final class ApiEndpoints {
 
   /// `GET /dementia?user_id=...` — 사용자별 분석 이력 조회
   static const String dementia = '/dementia';
+
+  // ==================== Notifications ====================
+  /// `POST /devices/register` — FCM 디바이스 토큰 등록
+  static const String devicesRegister = '/devices/register';
+
+  /// `GET /notifications` — 알림 목록 조회
+  static const String notifications = '/notifications';
 }
