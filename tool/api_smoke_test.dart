@@ -13,6 +13,7 @@ import 'package:dio/dio.dart';
 import 'package:itda/core/api/api_client.dart';
 import 'package:itda/services/photo_api_service.dart';
 import 'package:itda/services/quest_service.dart';
+import 'package:itda/services/notification_service.dart';
 
 Future<void> main() async {
   print('=== ITDA API Smoke Test ===\n');
@@ -20,6 +21,7 @@ Future<void> main() async {
   final Dio dio = ApiClient.create();
   final questService = QuestService(dio);
   final photoApiService = PhotoApiService(dio);
+  final notificationService = NotificationService(dio);
 
   // 1) GET /questions/health
   try {
@@ -104,6 +106,30 @@ Future<void> main() async {
     print('');
   } catch (e) {
     print('    ✗ 실패: $e\n');
+  }
+
+
+  // 7) GET /notifications
+  try {
+    print('[7] GET /notifications');
+    final notis = await notificationService.getNotifications();
+    print('    ✓ 성공');
+    print('    count: ${notis.length}');
+    for (final n in notis.take(3)) {
+      print('    - [${n.isRead ? "읽음" : "안읽음"}] ${n.title} @ ${n.createdAt}');
+    }
+    print('');
+  } catch (e) {
+    print('    ✗ 실패 (인증 필요 시 401/403 정상): $e\n');
+  }
+
+  // 8) POST /devices/register
+  try {
+    print('[8] POST /devices/register');
+    await notificationService.registerDevice('dummy_fcm_token_for_test');
+    print('    ✓ 성공\n');
+  } catch (e) {
+    print('    ✗ 실패 (인증 필요 시 401/403 정상): $e\n');
   }
 
   print('=== 종료 ===');
