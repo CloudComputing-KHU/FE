@@ -1,49 +1,20 @@
-/// 자녀 모드 알림 목록. 추후 BE 알림 API와 연동합니다.
+/// 자녀 모드 알림 목록. BE 알림 API(`GET /notifications`)와 연동합니다.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:itda/core/models/notification_item.dart';
+import 'package:itda/features/child/notifications/providers/notification_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
-import 'package:itda/features/child/shell/providers/child_shell_tab_provider.dart';
-import 'package:itda/features/child/widgets/child_primary_filled_button.dart';
-import 'package:itda/features/shared/providers/family_provider.dart';
-
-/// 자녀 알림 유형(추후 BE 푸시·폴링과 매핑).
-enum ChildNotificationKind {
-  /// 부모가 건강/식사/기분 등 퀘스트에 답했을 때
-  parentQuestAnswer,
-
-  /// 오늘 아직 사진을 보내지 않았을 때 독려
-  photoReminderToday,
-}
 
 class ChildNotificationsScreen extends ConsumerWidget {
   const ChildNotificationsScreen({super.key});
 
-  static final List<_NotificationItem> _photoItems = [
-    const _NotificationItem(
-      kind: ChildNotificationKind.photoReminderToday,
-      headline: '사진 보내기',
-      description: '오늘 아직 사진을 안 보내셨어요',
-      timeLabel: '오전 10:00',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final family = ref.watch(familyMeProvider).valueOrNull;
-    final parentName = _nonEmptyName(family?.activeLink?.parentName) ?? '부모님';
-    final questItems = [
-      _NotificationItem(
-        kind: ChildNotificationKind.parentQuestAnswer,
-        headline: '퀘스트 완료',
-        description: '$parentName가 오늘 퀘스트에 답했어요',
-        timeLabel: '1시간 전',
-      ),
-    ];
+    final notificationsAsync = ref.watch(notificationsProvider);
 
     return Scaffold(
       backgroundColor: ChildDashboardColors.orangePale,
@@ -66,29 +37,39 @@ class ChildNotificationsScreen extends ConsumerWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        children: [
-          _NotificationSectionCard(items: questItems),
-          const SizedBox(height: 14),
-          _NotificationSectionCard(items: _photoItems),
-        ],
+      body: notificationsAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: ChildDashboardColors.orange),
+        ),
+        error: (e, _) => _ErrorView(
+          onRetry: () => ref.read(notificationsProvider.notifier).refresh(),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return const _EmptyView();
+          }
+          return RefreshIndicator(
+            color: ChildDashboardColors.orange,
+            onRefresh: () =>
+                ref.read(notificationsProvider.notifier).refresh(),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                _NotificationSectionCard(items: items),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-String? _nonEmptyName(String? value) {
-  final trimmed = value?.trim();
-  if (trimmed == null || trimmed.isEmpty) return null;
-  return trimmed;
-}
-
-/// 한 섹션 안의 알림들을 흰 카드 + 내부 구분선으로 묶음.
+/// 알림들을 흰 카드 + 내부 구분선으로 묶음.
 class _NotificationSectionCard extends StatelessWidget {
   const _NotificationSectionCard({required this.items});
 
-  final List<_NotificationItem> items;
+  final List<NotificationItem> items;
 
   @override
   Widget build(BuildContext context) {
@@ -124,94 +105,83 @@ class _NotificationSectionCard extends StatelessWidget {
   }
 }
 
-class _NotificationTile extends ConsumerWidget {
+class _NotificationTile extends StatelessWidget {
   const _NotificationTile({required this.item});
 
-  final _NotificationItem item;
+  final NotificationItem item;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isPhoto = item.kind == ChildNotificationKind.photoReminderToday;
-
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _LeadingIcon(kind: item.kind),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          const _LeadingIcon(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.headline,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              height: 1.35,
-                              color: ChildDashboardColors.text,
-                            ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          height: 1.35,
+                          color: ChildDashboardColors.text,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          item.timeLabel,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: ChildDashboardColors.textMuted,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(width: 8),
                     Text(
-                      item.description,
+                      _formatTime(item.createdAt),
                       style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.45,
-                        color: ChildDashboardColors.textSub,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: ChildDashboardColors.textMuted,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          if (isPhoto) ...[
-            const SizedBox(height: 12),
-            ChildPrimaryFilledButton(
-              label: '사진 보내기',
-              onPressed: () {
-                ref.read(childShellTabProvider.notifier).state = 4;
-                context.pop();
-              },
+                const SizedBox(height: 6),
+                Text(
+                  item.body,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: ChildDashboardColors.textSub,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
+
+  /// 생성 시각을 "방금 전 / N분 전 / N시간 전 / N일 전"으로 표시.
+  static String _formatTime(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+    if (diff.inHours < 24) return '${diff.inHours}시간 전';
+    return '${diff.inDays}일 전';
+  }
 }
 
 class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({required this.kind});
-
-  final ChildNotificationKind kind;
+  const _LeadingIcon();
 
   @override
   Widget build(BuildContext context) {
-    final isPhoto = kind == ChildNotificationKind.photoReminderToday;
     return Container(
       width: 44,
       height: 44,
@@ -220,39 +190,67 @@ class _LeadingIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
-      child: isPhoto
-          ? SvgPicture.asset(
-              'assets/icons/camera.svg',
-              width: 22,
-              height: 22,
-              colorFilter: const ColorFilter.mode(
-                ChildDashboardColors.orangeDark,
-                BlendMode.srcIn,
-              ),
-            )
-          : const Icon(
-              Icons.sentiment_satisfied_alt_rounded,
-              size: 24,
-              color: ChildDashboardColors.orangeDark,
-            ),
+      child: const Icon(
+        Icons.notifications_rounded,
+        size: 24,
+        color: ChildDashboardColors.orangeDark,
+      ),
     );
   }
 }
 
-class _NotificationItem {
-  const _NotificationItem({
-    required this.kind,
-    required this.headline,
-    required this.description,
-    required this.timeLabel,
-  });
+/// 알림이 없을 때.
+class _EmptyView extends StatelessWidget {
+  const _EmptyView();
 
-  final ChildNotificationKind kind;
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 80, 16, 28),
+      children: const [
+        Icon(
+          Icons.notifications_none_rounded,
+          size: 56,
+          color: ChildDashboardColors.textMuted,
+        ),
+        SizedBox(height: 16),
+        Text(
+          '아직 도착한 알림이 없어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: ChildDashboardColors.textSub,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-  /// 한 줄 제목(퀘스트 완료 / 사진 보내기) — 시간과 같은 줄.
-  final String headline;
+/// 불러오기 실패 시.
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onRetry});
 
-  /// 예전 큰 제목에 쓰이던 본문 설명.
-  final String description;
-  final String timeLabel;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '알림을 불러오지 못했어요.',
+            style: TextStyle(
+              fontSize: 14,
+              color: ChildDashboardColors.textSub,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+        ],
+      ),
+    );
+  }
 }
