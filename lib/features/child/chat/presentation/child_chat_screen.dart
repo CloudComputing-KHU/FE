@@ -8,10 +8,11 @@ import 'package:itda/features/child/photo_upload/providers/upload_provider.dart'
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
+import 'package:itda/features/shared/providers/family_provider.dart';
 import 'package:itda/features/shared/providers/photo_reaction_provider.dart';
 
 /// 소통 탭. 자녀가 보낸 사진은 BE의 `GET /photos/history`로 가져오고,
-/// 부모의 반응(이모지·음성)은 BE에 매칭되는 API가 없어 데모 데이터를 유지합니다.
+/// 부모의 반응은 `GET /photos/{photo_id}/reactions`로 사진별 조회합니다.
 class ChildChatScreen extends ConsumerWidget {
   const ChildChatScreen({super.key});
 
@@ -31,9 +32,9 @@ class ChildChatScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final parentName = MockItdaData.parentDisplayName;
+    final family = ref.watch(familyMeProvider).valueOrNull;
+    final parentName = _nonEmptyName(family?.activeLink?.parentName) ?? '부모님';
     final sentAsync = ref.watch(sentPhotosProvider);
-    final reactionsByPhotoId = ref.watch(photoReactionProvider);
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
@@ -98,6 +99,14 @@ class ChildChatScreen extends ConsumerWidget {
                     ),
                   );
                 }
+                final reactionsByPhotoId = {
+                  for (final photo in photos)
+                    photo.id:
+                        ref
+                            .watch(photoReactionsProvider(photo.id))
+                            .valueOrNull ??
+                        const <PhotoReaction>[],
+                };
                 final entries = _buildEntriesFromPhotos(
                   photos,
                   reactionsByPhotoId,
@@ -117,6 +126,12 @@ class ChildChatScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String? _nonEmptyName(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
 }
 
 List<ChildCommEntry> _buildEntriesFromPhotos(
@@ -154,7 +169,7 @@ List<ChildCommEntry> _buildEntriesFromPhotos(
       } else {
         out.add(
           ChildCommParentQuickReaction(
-            label: reaction.label,
+            label: reaction.displayLabel,
             time: _timeLabel(reaction.createdAt),
           ),
         );

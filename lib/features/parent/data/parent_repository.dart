@@ -32,14 +32,12 @@ class ParentRepository {
   /// 선택형 답변을 제출합니다.
   Future<void> submitAnswer({
     required String type,
-    required String userId,
     required String questionId,
     required String answer,
   }) async {
     await _dio.post<void>(
       ApiEndpoints.answers(type),
       data: {
-        'user_id': userId,
         'question_id': questionId,
         'answer_type': 'choice',
         'answer': answer,
@@ -51,13 +49,11 @@ class ParentRepository {
   /// [filePath] : 로컬 파일 경로 (m4a / wav / mp3)
   Future<ParentVoiceUploadResult> uploadVoice({
     required String type,
-    required String userId,
     required String questionId,
     required String filePath,
   }) async {
     final fileName = filePath.split('/').last;
     final formData = FormData.fromMap({
-      'user_id': userId,
       'question_id': questionId,
       'file': await MultipartFile.fromFile(filePath, filename: fileName),
     });
@@ -75,11 +71,8 @@ class ParentRepository {
   // ── Photos ─────────────────────────────────────────────────────────────────
 
   /// 부모가 받은 사진 목록을 최신순으로 조회합니다.
-  Future<List<ParentReceivedPhoto>> fetchReceivedPhotos(String userId) async {
-    final res = await _dio.get<List<dynamic>>(
-      ApiEndpoints.receivedPhotos,
-      queryParameters: {'user_id': userId},
-    );
+  Future<List<ParentReceivedPhoto>> fetchReceivedPhotos() async {
+    final res = await _dio.get<List<dynamic>>(ApiEndpoints.receivedPhotos);
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)
@@ -87,12 +80,12 @@ class ParentRepository {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  /// 지난 사진 이력을 조회합니다 (자녀가 보낸 전체 이력).
-  Future<List<ParentReceivedPhoto>> fetchPhotoHistory(String userId) async {
-    final res = await _dio.get<List<dynamic>>(
-      ApiEndpoints.photosHistory,
-      queryParameters: {'user_id': userId},
-    );
+  /// 지난 사진 이력을 조회합니다.
+  ///
+  /// 부모 화면에서는 "내가 보낸 사진"이 아니라 "연결된 자녀에게 받은 사진"을
+  /// 다시 보는 흐름이므로 `/photos/received`를 사용합니다.
+  Future<List<ParentReceivedPhoto>> fetchPhotoHistory() async {
+    final res = await _dio.get<List<dynamic>>(ApiEndpoints.receivedPhotos);
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)

@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/auth/auth_service.dart';
-import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/models/family.dart';
+import 'package:itda/core/router/routes.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/widgets/child_primary_filled_button.dart';
 import 'package:itda/features/shared/providers/family_provider.dart';
 
 class ParentConnectionScreen extends ConsumerStatefulWidget {
-  const ParentConnectionScreen({super.key});
+  const ParentConnectionScreen({
+    super.key,
+    this.showBackButton = true,
+    this.showLogoutButton = false,
+  });
+
+  final bool showBackButton;
+  final bool showLogoutButton;
 
   @override
   ConsumerState<ParentConnectionScreen> createState() =>
@@ -73,6 +82,32 @@ class _ParentConnectionScreenState
     ).showSnackBar(SnackBar(content: Text('부모님 앱에서 초대 코드 $code 를 입력해주세요.')));
   }
 
+  Future<void> _logout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('로그아웃할까요?'),
+        content: const Text('현재 계정에서 로그아웃하고 로그인 화면으로 이동합니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('로그아웃'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    await ref.read(authServiceProvider).signOut();
+    ref.invalidate(currentUserProfileProvider);
+    ref.invalidate(familyMeProvider);
+    if (mounted) context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
     final familyState = ref.watch(familyMeProvider);
@@ -83,35 +118,51 @@ class _ParentConnectionScreenState
         backgroundColor: ChildDashboardColors.orangePale,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          '부모님 연결',
-          style: TextStyle(
-            color: ChildDashboardColors.text,
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: ChildDashboardColors.text,
-            size: 19,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: widget.showBackButton,
+        title: widget.showBackButton
+            ? const Text(
+                '부모님 연결',
+                style: TextStyle(
+                  color: ChildDashboardColors.text,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
+              )
+            : const SizedBox.shrink(),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: ChildDashboardColors.text,
+                  size: 19,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.info_outline_rounded,
-              color: ChildDashboardColors.text,
-              size: 20,
+          if (widget.showLogoutButton)
+            IconButton(
+              tooltip: '로그아웃',
+              icon: const Icon(
+                Icons.logout_rounded,
+                color: ChildDashboardColors.text,
+                size: 20,
+              ),
+              onPressed: _logout,
+            )
+          else
+            IconButton(
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: ChildDashboardColors.text,
+                size: 20,
+              ),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('초대 코드는 10분간 유효해요.')),
+                );
+              },
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('초대 코드는 10분간 유효해요.')),
-              );
-            },
-          ),
         ],
       ),
       body: SafeArea(
@@ -127,18 +178,15 @@ class _ParentConnectionScreenState
           ),
           data: (family) {
             final invite = _createdInvite ?? family.pendingInvite;
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-              children: [
-                if (family.isConnected)
-                  _ConnectedView(link: family.activeLink!)
-                else if (invite == null)
-                  _CreateCodeView(
+            final content = family.isConnected
+                ? _ConnectedView(link: family.activeLink!)
+                : invite == null
+                ? _CreateCodeView(
                     creating: _creating,
                     onGenerate: _generateCode,
+                    showConnectionStatus: widget.showBackButton,
                   )
-                else
-                  _GeneratedCodeView(
+                : _GeneratedCodeView(
                     code: invite.inviteCode,
                     expiresAt:
                         invite.expiresAt ??
@@ -147,8 +195,35 @@ class _ParentConnectionScreenState
                     onShare: _shareCode,
                     onRegenerate: _generateCode,
                     regenerating: _creating,
-                  ),
-              ],
+                  );
+
+            if (!widget.showBackButton && !family.isConnected) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 28,
+                      ),
+                      child: Center(
+                        child: Transform.translate(
+                          offset: const Offset(0, -50),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: content,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+              children: [content],
             );
           },
         ),
@@ -158,10 +233,15 @@ class _ParentConnectionScreenState
 }
 
 class _CreateCodeView extends StatelessWidget {
-  const _CreateCodeView({required this.creating, required this.onGenerate});
+  const _CreateCodeView({
+    required this.creating,
+    required this.onGenerate,
+    required this.showConnectionStatus,
+  });
 
   final bool creating;
   final VoidCallback onGenerate;
+  final bool showConnectionStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -170,10 +250,10 @@ class _CreateCodeView extends StatelessWidget {
         const SizedBox(height: 12),
         Image.asset(
           'assets/images/family_invite_child.png',
-          height: 150,
+          height: 160,
           fit: BoxFit.contain,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 30),
         const Text(
           '부모님을 앱에 연결해보세요',
           textAlign: TextAlign.center,
@@ -183,7 +263,7 @@ class _CreateCodeView extends StatelessWidget {
             color: ChildDashboardColors.text,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
         const Text(
           '초대 코드를 생성한 뒤\n부모님 앱에서 입력하면 연결됩니다.',
           textAlign: TextAlign.center,
@@ -194,27 +274,29 @@ class _CreateCodeView extends StatelessWidget {
             color: ChildDashboardColors.textSub,
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 45),
         ChildPrimaryFilledButton(
           label: creating ? '생성 중...' : '초대 코드 생성하기',
           onPressed: creating ? null : onGenerate,
           borderRadius: 10,
           labelFontWeight: FontWeight.w900,
         ),
-        const SizedBox(height: 34),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '연결 상태',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: ChildDashboardColors.text,
+        if (showConnectionStatus) ...[
+          const SizedBox(height: 34),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '연결 상태',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: ChildDashboardColors.text,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const _EmptyConnectionPanel(),
+          const SizedBox(height: 12),
+          const _EmptyConnectionPanel(),
+        ],
       ],
     );
   }
@@ -319,7 +401,7 @@ class _ConnectedView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _ConnectedParentCard(parentUserId: link.parentUserId),
+        _ConnectedParentCard(parentName: link.parentName),
         const SizedBox(height: 22),
         const Text(
           '연결 관리',
@@ -486,9 +568,9 @@ class _OutlineActionButton extends StatelessWidget {
 }
 
 class _ConnectedParentCard extends StatelessWidget {
-  const _ConnectedParentCard({required this.parentUserId});
+  const _ConnectedParentCard({required this.parentName});
 
-  final String parentUserId;
+  final String? parentName;
 
   @override
   Widget build(BuildContext context) {
@@ -512,27 +594,14 @@ class _ConnectedParentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '${MockItdaData.parentDisplayName}님',
+                Text(
+                  _displayFamilyName(parentName, fallback: '부모님'),
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: ChildDashboardColors.text,
                   ),
                 ),
-                if (parentUserId.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    parentUserId,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: ChildDashboardColors.textMuted,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 6),
                 const _ConnectionStatusLine(),
               ],
@@ -542,6 +611,12 @@ class _ConnectedParentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _displayFamilyName(String? value, {required String fallback}) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return fallback;
+  return trimmed.endsWith('님') ? trimmed : '$trimmed님';
 }
 
 class _ConnectionStatusLine extends StatelessWidget {

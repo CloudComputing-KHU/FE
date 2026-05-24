@@ -6,32 +6,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/providers/child_shell_tab_provider.dart';
 import 'package:itda/features/child/widgets/child_primary_filled_button.dart';
+import 'package:itda/features/shared/providers/family_provider.dart';
 
 /// 자녀 알림 유형(추후 BE 푸시·폴링과 매핑).
 enum ChildNotificationKind {
   /// 부모가 건강/식사/기분 등 퀘스트에 답했을 때
   parentQuestAnswer,
+
   /// 오늘 아직 사진을 보내지 않았을 때 독려
   photoReminderToday,
 }
 
-class ChildNotificationsScreen extends StatelessWidget {
+class ChildNotificationsScreen extends ConsumerWidget {
   const ChildNotificationsScreen({super.key});
-
-  /// 데모: 퀘스트 완료 / 사진 보내기 구분. BE 연동 시 타입·시간으로 나눕니다.
-  static final List<_NotificationItem> _questItems = [
-    _NotificationItem(
-      kind: ChildNotificationKind.parentQuestAnswer,
-      headline: '퀘스트 완료',
-      description:
-          '${MockItdaData.parentDisplayName}가 오늘 퀘스트에 답했어요',
-      timeLabel: '1시간 전',
-    ),
-  ];
 
   static final List<_NotificationItem> _photoItems = [
     const _NotificationItem(
@@ -43,7 +33,18 @@ class ChildNotificationsScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final family = ref.watch(familyMeProvider).valueOrNull;
+    final parentName = _nonEmptyName(family?.activeLink?.parentName) ?? '부모님';
+    final questItems = [
+      _NotificationItem(
+        kind: ChildNotificationKind.parentQuestAnswer,
+        headline: '퀘스트 완료',
+        description: '$parentName가 오늘 퀘스트에 답했어요',
+        timeLabel: '1시간 전',
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: ChildDashboardColors.orangePale,
       appBar: AppBar(
@@ -68,13 +69,19 @@ class ChildNotificationsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
-          _NotificationSectionCard(items: _questItems),
+          _NotificationSectionCard(items: questItems),
           const SizedBox(height: 14),
           _NotificationSectionCard(items: _photoItems),
         ],
       ),
     );
   }
+}
+
+String? _nonEmptyName(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
 }
 
 /// 한 섹션 안의 알림들을 흰 카드 + 내부 구분선으로 묶음.
@@ -241,8 +248,10 @@ class _NotificationItem {
   });
 
   final ChildNotificationKind kind;
+
   /// 한 줄 제목(퀘스트 완료 / 사진 보내기) — 시간과 같은 줄.
   final String headline;
+
   /// 예전 큰 제목에 쓰이던 본문 설명.
   final String description;
   final String timeLabel;

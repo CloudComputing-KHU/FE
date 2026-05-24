@@ -1,6 +1,10 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
-import 'package:itda/core/auth/token_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'package:itda/features/parent/data/parent_models.dart';
 import 'package:itda/features/parent/data/parent_repository.dart';
 
@@ -10,15 +14,10 @@ final parentRepositoryProvider = Provider<ParentRepository>(
   (_) => ParentRepository(),
 );
 
-// ── 현재 로그인한 부모 user_id ──────────────────────────────────────────────
-
-Future<String> _currentParentUserId() async {
-  return await TokenStorage.readCurrentUserId() ?? 'parent_001';
-}
-
 // ── 받은 사진 목록 ─────────────────────────────────────────────────────────
 
 final _openedReceivedPhotoIds = <String>{};
+var _openedReceivedPhotoIdsLoaded = false;
 
 class ReceivedPhotosNotifier
     extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
@@ -30,6 +29,7 @@ class ReceivedPhotosNotifier
   /// 사진 확인 후 목록에서 제거합니다 (낙관적 업데이트).
   void removeByIds(Set<String> ids) {
     _openedReceivedPhotoIds.addAll(ids);
+    unawaited(_persistOpenedReceivedPhotoIds());
     final current = state.valueOrNull;
     if (current == null) return;
     state = AsyncData(current.where((p) => !ids.contains(p.photoId)).toList());
@@ -42,29 +42,46 @@ class ReceivedPhotosNotifier
   }
 
   Future<List<ParentReceivedPhoto>> _fetchIncomingPhotos() async {
-    final userId = await _currentParentUserId();
+    await _loadOpenedReceivedPhotoIds();
     final repository = ref.read(parentRepositoryProvider);
-
-    Object? receivedError;
-    var photos = <ParentReceivedPhoto>[];
-    try {
-      photos = await repository.fetchReceivedPhotos(userId);
-    } catch (error) {
-      receivedError = error;
-    }
-
-    if (photos.isEmpty) {
-      try {
-        final history = await repository.fetchPhotoHistory(userId);
-        photos = history.where(_isRecentIncomingPhoto).toList();
-      } catch (_) {
-        if (receivedError != null) rethrow;
-      }
-    }
+    final photos = await repository.fetchReceivedPhotos();
 
     return photos
         .where((photo) => !_openedReceivedPhotoIds.contains(photo.photoId))
         .toList();
+  }
+}
+
+Future<File> _openedReceivedPhotoIdsFile() async {
+  final directory = await getApplicationDocumentsDirectory();
+  return File('${directory.path}/itda_opened_received_photo_ids.json');
+}
+
+Future<void> _loadOpenedReceivedPhotoIds() async {
+  if (_openedReceivedPhotoIdsLoaded) return;
+  _openedReceivedPhotoIdsLoaded = true;
+  try {
+    final file = await _openedReceivedPhotoIdsFile();
+    if (!await file.exists()) return;
+    final raw = await file.readAsString();
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      _openedReceivedPhotoIds
+        ..clear()
+        ..addAll(decoded.whereType<String>());
+    }
+  } catch (_) {
+    // 로컬 캐시 실패는 새 사진 조회 실패로 이어지지 않게 둡니다.
+  }
+}
+
+Future<void> _persistOpenedReceivedPhotoIds() async {
+  try {
+    final file = await _openedReceivedPhotoIdsFile();
+    final ids = _openedReceivedPhotoIds.toList()..sort();
+    await file.writeAsString(jsonEncode(ids), flush: true);
+  } catch (_) {
+    // 저장 실패 시에도 현재 세션에서는 메모리 Set으로 숨김 처리를 유지합니다.
   }
 }
 
@@ -74,34 +91,19 @@ final receivedPhotosProvider =
       List<ParentReceivedPhoto>
     >(ReceivedPhotosNotifier.new);
 
-bool _isRecentIncomingPhoto(ParentReceivedPhoto photo) {
-  final createdAt = photo.createdAt.toLocal();
-  final now = DateTime.now();
-  final isSameDay =
-      createdAt.year == now.year &&
-      createdAt.month == now.month &&
-      createdAt.day == now.day;
-  if (isSameDay) return true;
-
-  final elapsed = now.difference(createdAt);
-  return !elapsed.isNegative && elapsed.inHours < 24;
-}
-
 // ── 지난 사진 이력 ─────────────────────────────────────────────────────────
 
 class PastPhotosNotifier
     extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
   @override
   Future<List<ParentReceivedPhoto>> build() async {
-    final userId = await _currentParentUserId();
-    return ref.read(parentRepositoryProvider).fetchPhotoHistory(userId);
+    return ref.read(parentRepositoryProvider).fetchPhotoHistory();
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    final userId = await _currentParentUserId();
     state = await AsyncValue.guard(
-      () => ref.read(parentRepositoryProvider).fetchPhotoHistory(userId),
+      () => ref.read(parentRepositoryProvider).fetchPhotoHistory(),
     );
   }
 }
@@ -136,15 +138,9 @@ Future<bool> submitParentAnswer({
   required String answer,
 }) async {
   try {
-    final userId = await _currentParentUserId();
     await ref
         .read(parentRepositoryProvider)
-        .submitAnswer(
-          type: type,
-          userId: userId,
-          questionId: questionId,
-          answer: answer,
-        );
+        .submitAnswer(type: type, questionId: questionId, answer: answer);
     ref.read(healthQuestStepProvider.notifier).update((s) => s + 1);
     return true;
   } catch (_) {
@@ -160,15 +156,9 @@ Future<bool> submitParentVoice({
   required String filePath,
 }) async {
   try {
-    final userId = await _currentParentUserId();
     final result = await ref
         .read(parentRepositoryProvider)
-        .uploadVoice(
-          type: type,
-          userId: userId,
-          questionId: questionId,
-          filePath: filePath,
-        );
+        .uploadVoice(type: type, questionId: questionId, filePath: filePath);
     try {
       await ref
           .read(parentRepositoryProvider)
