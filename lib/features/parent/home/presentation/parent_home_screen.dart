@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/features/parent/data/parent_models.dart';
@@ -124,6 +125,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(receivedPhotosProvider);
     final healthQuestCompleted = ref.watch(healthQuestStepProvider);
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
@@ -132,7 +134,8 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _ParentV4Header(
-              welcomeName: MockItdaData.parentWelcomeName,
+              welcomeName:
+                  profile?.displayName ?? MockItdaData.parentWelcomeName,
               onSettings: _openSettings,
             ),
             Expanded(

@@ -30,6 +30,16 @@ abstract final class ApiEndpoints {
   /// `POST /auth/refresh` — 토큰 갱신
   static const String authRefresh = '/auth/refresh';
 
+  // ==================== Family ====================
+  /// `POST /family/invites` — 가족 초대 코드 생성
+  static const String familyInvites = '/family/invites';
+
+  /// `POST /family/connect` — 가족 초대 코드로 연결
+  static const String familyConnect = '/family/connect';
+
+  /// `GET /family/me` — 내 가족 연결 상태 조회
+  static const String familyMe = '/family/me';
+
   // ==================== Questions ====================
   /// `GET /questions/{type}` — 오늘의 질문 조회 (type: health | meal | mood)
   static String questions(String type) => '/questions/$type';

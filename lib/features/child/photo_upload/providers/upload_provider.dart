@@ -6,6 +6,7 @@ import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/models/photo.dart';
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart'
     show childRepositoryProvider;
+import 'package:itda/features/shared/providers/family_provider.dart';
 
 /// 사진 전송 중 여부. 업로드 시작/종료 시 갱신합니다.
 final uploadBusyProvider = StateProvider<bool>((ref) => false);
@@ -39,11 +40,16 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
   ref.read(uploadBusyProvider.notifier).state = true;
   try {
     final userId = await _currentUserId();
+    final family = await ref.read(familyMeProvider.future);
+    final parentUserId = family.activeLink?.parentUserId;
+    if (parentUserId == null || parentUserId.isEmpty) {
+      return PhotoUploadOutcome(ok: false, message: '부모님 연결 후 사진을 보낼 수 있어요.');
+    }
     await ref
         .read(childRepositoryProvider)
         .sendPhoto(
           childUserId: userId,
-          parentUserId: userId,
+          parentUserId: parentUserId,
           filePath: filePath,
           fileBytes: fileBytes,
           fileName: fileName,

@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/auth/auth_service.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/models/family.dart';
 import 'package:itda/core/theme/app_colors.dart';
+import 'package:itda/features/shared/providers/family_provider.dart';
 
-class FamilyConnectionScreen extends StatefulWidget {
+class FamilyConnectionScreen extends ConsumerStatefulWidget {
   const FamilyConnectionScreen({super.key});
 
   @override
-  State<FamilyConnectionScreen> createState() => _FamilyConnectionScreenState();
+  ConsumerState<FamilyConnectionScreen> createState() =>
+      _FamilyConnectionScreenState();
 }
 
-class _FamilyConnectionScreenState extends State<FamilyConnectionScreen> {
+class _FamilyConnectionScreenState
+    extends ConsumerState<FamilyConnectionScreen> {
   final _controllers = List.generate(4, (_) => TextEditingController());
   final _focusNodes = List.generate(4, (_) => FocusNode());
-  bool _connected = false;
+  FamilyLink? _connectedLink;
+  bool _connecting = false;
 
   @override
   void dispose() {
@@ -51,7 +58,7 @@ class _FamilyConnectionScreenState extends State<FamilyConnectionScreen> {
     setState(() {});
   }
 
-  void _connect() {
+  Future<void> _connect() async {
     if (_code.length < 4) {
       ScaffoldMessenger.of(
         context,
@@ -59,11 +66,36 @@ class _FamilyConnectionScreenState extends State<FamilyConnectionScreen> {
       return;
     }
     FocusScope.of(context).unfocus();
-    setState(() => _connected = true);
+    setState(() => _connecting = true);
+    try {
+      final result = await ref.read(familyServiceProvider).connect(_code);
+      if (!mounted) return;
+      setState(() => _connectedLink = result.link);
+      ref.invalidate(familyMeProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? '가족 연결이 완료됐어요.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AuthService.messageFromError(
+              error,
+              fallback: '가족 연결에 실패했어요. 초대 코드를 확인해 주세요.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final familyState = ref.watch(familyMeProvider);
+
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
       appBar: AppBar(
@@ -104,20 +136,37 @@ class _FamilyConnectionScreenState extends State<FamilyConnectionScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-          children: [
-            if (_connected)
-              _ConnectedView(onConfirm: () => Navigator.of(context).pop())
-            else
-              _CodeInputView(
-                controllers: _controllers,
-                focusNodes: _focusNodes,
-                onChanged: _onCodeChanged,
-                onConnect: _connect,
-                enabled: _code.length == 4,
-              ),
-          ],
+        child: familyState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _FamilyLoadError(
+            message: AuthService.messageFromError(
+              error,
+              fallback: '가족 연결 상태를 불러오지 못했어요.',
+            ),
+            onRetry: () => ref.invalidate(familyMeProvider),
+          ),
+          data: (family) {
+            final connectedLink = _connectedLink ?? family.activeLink;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+              children: [
+                if (connectedLink != null && connectedLink.isActive)
+                  _ConnectedView(
+                    link: connectedLink,
+                    onConfirm: () => Navigator.of(context).pop(),
+                  )
+                else
+                  _CodeInputView(
+                    controllers: _controllers,
+                    focusNodes: _focusNodes,
+                    onChanged: _onCodeChanged,
+                    onConnect: _connect,
+                    enabled: _code.length == 4 && !_connecting,
+                    connecting: _connecting,
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -131,6 +180,7 @@ class _CodeInputView extends StatelessWidget {
     required this.onChanged,
     required this.onConnect,
     required this.enabled,
+    required this.connecting,
   });
 
   final List<TextEditingController> controllers;
@@ -138,6 +188,7 @@ class _CodeInputView extends StatelessWidget {
   final void Function(int index, String value) onChanged;
   final VoidCallback onConnect;
   final bool enabled;
+  final bool connecting;
 
   @override
   Widget build(BuildContext context) {
@@ -197,9 +248,9 @@ class _CodeInputView extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          child: const Text(
-            '연결하기',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          child: Text(
+            connecting ? '연결 중...' : '연결하기',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
         ),
         const SizedBox(height: 22),
@@ -251,8 +302,9 @@ class _CodeBox extends StatelessWidget {
 }
 
 class _ConnectedView extends StatelessWidget {
-  const _ConnectedView({required this.onConfirm});
+  const _ConnectedView({required this.link, required this.onConfirm});
 
+  final FamilyLink link;
   final VoidCallback onConfirm;
 
   @override
@@ -288,7 +340,7 @@ class _ConnectedView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 44),
-        const _ConnectedChildCard(),
+        _ConnectedChildCard(childUserId: link.childUserId),
         const SizedBox(height: 44),
         FilledButton(
           onPressed: onConfirm,
@@ -311,7 +363,9 @@ class _ConnectedView extends StatelessWidget {
 }
 
 class _ConnectedChildCard extends StatelessWidget {
-  const _ConnectedChildCard();
+  const _ConnectedChildCard({required this.childUserId});
+
+  final String childUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -338,8 +392,8 @@ class _ConnectedChildCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   '연결된 자녀',
                   style: TextStyle(
                     fontSize: 13,
@@ -347,8 +401,8 @@ class _ConnectedChildCard extends StatelessWidget {
                     color: ItdaColors.textSub,
                   ),
                 ),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 6),
+                const Text(
                   '${MockItdaData.childDisplayName}님',
                   style: TextStyle(
                     fontSize: 21,
@@ -356,6 +410,19 @@ class _ConnectedChildCard extends StatelessWidget {
                     color: ItdaColors.text,
                   ),
                 ),
+                if (childUserId.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    childUserId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ItdaColors.textMuted,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -403,6 +470,38 @@ class _NoticePanel extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _FamilyLoadError extends StatelessWidget {
+  const _FamilyLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: ItdaColors.textSub,
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: onRetry, child: const Text('다시 시도')),
+          ],
+        ),
       ),
     );
   }
