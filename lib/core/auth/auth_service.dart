@@ -141,7 +141,17 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await TokenStorage.clear();
+    final accessToken = await TokenStorage.readAccessToken();
+    try {
+      if (accessToken != null && accessToken.isNotEmpty) {
+        await _dio.post<String>(
+          ApiEndpoints.authLogout,
+          data: {'access_token': accessToken},
+        );
+      }
+    } finally {
+      await TokenStorage.clear();
+    }
   }
 
   static String messageFromError(Object error, {required String fallback}) {

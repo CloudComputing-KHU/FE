@@ -30,6 +30,9 @@ abstract final class ApiEndpoints {
   /// `POST /auth/refresh` — 토큰 갱신
   static const String authRefresh = '/auth/refresh';
 
+  /// `POST /auth/logout` — 로그아웃
+  static const String authLogout = '/auth/logout';
+
   // ==================== Family ====================
   /// `POST /family/invites` — 가족 초대 코드 생성
   static const String familyInvites = '/family/invites';
