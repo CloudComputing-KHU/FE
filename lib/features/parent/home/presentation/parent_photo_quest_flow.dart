@@ -11,18 +11,27 @@ class ParentPhotoReactionResult {
     required this.photoIds,
     required this.label,
     this.isVoice = false,
+    this.voiceFilePath,
+    this.durationSeconds,
   });
 
   final Set<String> photoIds;
   final String label;
   final bool isVoice;
+  final String? voiceFilePath;
+  final int? durationSeconds;
 }
 
 class ParentPhotoQuestFlow extends StatefulWidget {
-  ParentPhotoQuestFlow({super.key, required this.photos, this.initialIndex = 0})
-    : assert(photos.isNotEmpty);
+  ParentPhotoQuestFlow({
+    super.key,
+    required this.photos,
+    required this.childName,
+    this.initialIndex = 0,
+  }) : assert(photos.isNotEmpty);
 
   final List<ParentPendingPhoto> photos;
+  final String childName;
   final int initialIndex;
 
   @override
@@ -188,27 +197,27 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                   ignoring: v < 0.65,
                                   child: _ReactionPane(
                                     photos: widget.photos,
-                                    onReaction: (summary, {isVoice = false}) {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '반응 전송: $summary\n${MockItdaData.childDisplayName}에게 전달됐어요!',
-                                          ),
-                                        ),
-                                      );
-                                      Navigator.of(context).pop(
-                                        ParentPhotoReactionResult(
-                                          photoIds: widget.photos
-                                              .map((p) => p.id)
-                                              .toSet(),
-                                          label: summary,
-                                          isVoice: isVoice,
-                                        ),
-                                      );
-                                    },
+                                    childName: widget.childName,
+                                    onReaction:
+                                        (
+                                          summary, {
+                                          isVoice = false,
+                                          voiceFilePath,
+                                          durationSeconds,
+                                        }) {
+                                          if (!mounted) return;
+                                          Navigator.of(context).pop(
+                                            ParentPhotoReactionResult(
+                                              photoIds: widget.photos
+                                                  .map((p) => p.id)
+                                                  .toSet(),
+                                              label: summary,
+                                              isVoice: isVoice,
+                                              voiceFilePath: voiceFilePath,
+                                              durationSeconds: durationSeconds,
+                                            ),
+                                          );
+                                        },
                                   ),
                                 ),
                               ),
@@ -368,14 +377,25 @@ class _ConfirmQuestButton extends StatelessWidget {
 
 /// 하단 반응 패널: 썸네일, 빠른 반응 그리드, 목소리 답하기.
 class _ReactionPane extends StatelessWidget {
-  const _ReactionPane({required this.photos, required this.onReaction});
+  const _ReactionPane({
+    required this.photos,
+    required this.childName,
+    required this.onReaction,
+  });
 
   final List<ParentPendingPhoto> photos;
-  final void Function(String summary, {bool isVoice}) onReaction;
+  final String childName;
+  final void Function(
+    String summary, {
+    bool isVoice,
+    String? voiceFilePath,
+    int? durationSeconds,
+  })
+  onReaction;
 
   @override
   Widget build(BuildContext context) {
-    final name = MockItdaData.childDisplayName;
+    final name = childName.trim().isEmpty ? '자녀' : childName.trim();
     final presets = MockItdaData.parentPhotoQuickReactions;
 
     return SingleChildScrollView(
@@ -505,13 +525,16 @@ class _ReactionPane extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () async {
-                  final sent = await HealthVoiceRecordSheet.show(
+                  final result = await HealthVoiceRecordSheet.recordFile(
                     context,
-                    questionId: 'photo_voice',
-                    questionType: 'health',
                   );
-                  if (sent == true) {
-                    onReaction('목소리 반응', isVoice: true);
+                  if (result != null) {
+                    onReaction(
+                      '목소리 반응',
+                      isVoice: true,
+                      voiceFilePath: result.filePath,
+                      durationSeconds: result.durationSeconds,
+                    );
                   }
                 },
                 borderRadius: BorderRadius.circular(18),

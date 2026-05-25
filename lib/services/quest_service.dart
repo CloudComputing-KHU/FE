@@ -9,7 +9,7 @@ import 'package:itda/core/models/quest.dart';
 /// 백엔드 엔드포인트:
 /// - `GET /questions/{type}` — 오늘의 질문 조회
 /// - `POST /answers/{type}` — 텍스트(선택형) 답변 저장
-/// - `GET /answers/{type}?user_id=...` — 사용자 답변 목록 조회
+/// - `GET /answers/{type}` — 사용자 답변 목록 조회
 /// - 음성 답변 업로드는 부모 영역(현기님 담당)에서 처리
 class QuestService {
   QuestService(this._dio);
@@ -29,14 +29,12 @@ class QuestService {
   /// 음성 답변은 부모 영역(ParentRepository.submitVoice)에서 처리합니다.
   Future<void> submitAnswer({
     required String type,
-    required String userId,
     required String questionId,
     required String answer,
   }) async {
     await _dio.post(
       ApiEndpoints.answers(type),
       data: {
-        'user_id': userId,
         'question_id': questionId,
         'answer': answer,
         'answer_type': 'choice',
@@ -47,14 +45,8 @@ class QuestService {
   /// 사용자의 답변 목록 조회 (자녀가 부모 답변 확인용).
   ///
   /// 최신 시간순으로 정렬되어 옵니다.
-  Future<List<AnswerItem>> getAnswers({
-    required String type,
-    required String userId,
-  }) async {
-    final response = await _dio.get(
-      ApiEndpoints.answers(type),
-      queryParameters: {'user_id': userId},
-    );
+  Future<List<AnswerItem>> getAnswers({required String type}) async {
+    final response = await _dio.get(ApiEndpoints.answers(type));
     final list = response.data as List<dynamic>;
     return list
         .map((e) => AnswerItem.fromJson(e as Map<String, dynamic>))

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/models/answer_item.dart';
 import 'package:itda/core/models/dementia_analysis.dart';
 import 'package:itda/features/child/data/child_repository.dart';
@@ -11,12 +10,6 @@ final childRepositoryProvider = Provider<ChildRepository>(
   (_) => ChildRepository(),
 );
 
-// ── 현재 보고 있는 부모 user_id ───────────────────────────────────────────────
-
-Future<String> _currentParentUserId() async {
-  return await TokenStorage.readCurrentUserId() ?? 'parent_001';
-}
-
 // ── 건강 리포트 화면 — 부모 답변 목록 ────────────────────────────────────────
 
 /// `type`별로 부모의 답변 목록을 캐시합니다.
@@ -25,20 +18,14 @@ class ParentAnswersNotifier
     extends AutoDisposeFamilyAsyncNotifier<List<AnswerItem>, String> {
   @override
   Future<List<AnswerItem>> build(String type) async {
-    final userId = await _currentParentUserId();
-    return ref
-        .read(childRepositoryProvider)
-        .fetchParentAnswers(type: type, parentUserId: userId);
+    return ref.read(childRepositoryProvider).fetchParentAnswers(type: type);
   }
 
   /// 서버에서 다시 불러옵니다.
   Future<void> refresh() async {
     state = const AsyncLoading();
-    final userId = await _currentParentUserId();
     state = await AsyncValue.guard(
-      () => ref
-          .read(childRepositoryProvider)
-          .fetchParentAnswers(type: arg, parentUserId: userId),
+      () => ref.read(childRepositoryProvider).fetchParentAnswers(type: arg),
     );
   }
 }

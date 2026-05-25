@@ -1,40 +1,71 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:itda/core/data/mock_itda_data.dart';
+import 'package:itda/core/auth/auth_provider.dart';
+import 'package:itda/core/auth/auth_service.dart';
+import 'package:itda/core/models/family.dart';
+import 'package:itda/core/router/routes.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/widgets/child_primary_filled_button.dart';
+import 'package:itda/features/shared/providers/family_provider.dart';
 
-class ParentConnectionScreen extends StatefulWidget {
-  const ParentConnectionScreen({super.key});
+class ParentConnectionScreen extends ConsumerStatefulWidget {
+  const ParentConnectionScreen({
+    super.key,
+    this.showBackButton = true,
+    this.showLogoutButton = false,
+  });
+
+  final bool showBackButton;
+  final bool showLogoutButton;
 
   @override
-  State<ParentConnectionScreen> createState() => _ParentConnectionScreenState();
+  ConsumerState<ParentConnectionScreen> createState() =>
+      _ParentConnectionScreenState();
 }
 
-class _ParentConnectionScreenState extends State<ParentConnectionScreen> {
-  String? _inviteCode;
-  DateTime? _expiresAt;
-  bool _connected = false;
+class _ParentConnectionScreenState
+    extends ConsumerState<ParentConnectionScreen> {
+  FamilyInvite? _createdInvite;
+  bool _creating = false;
 
-  void _generateCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final random = Random.secure();
-    final code = List.generate(
-      4,
-      (_) => chars[random.nextInt(chars.length)],
-    ).join();
+  String? get _currentInviteCode {
+    final created = _createdInvite?.inviteCode;
+    if (created != null && created.isNotEmpty) return created;
+    final family = ref.read(familyMeProvider).valueOrNull;
+    final pending = family?.pendingInvite?.inviteCode;
+    if (pending != null && pending.isNotEmpty) return pending;
+    return null;
+  }
 
-    setState(() {
-      _inviteCode = code;
-      _expiresAt = DateTime.now().add(const Duration(minutes: 10));
-    });
+  Future<void> _generateCode() async {
+    setState(() => _creating = true);
+    try {
+      final invite = await ref.read(familyServiceProvider).createInvite();
+      if (!mounted) return;
+      setState(() => _createdInvite = invite);
+      ref.invalidate(familyMeProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(invite.message ?? '초대 코드가 생성됐어요.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AuthService.messageFromError(error, fallback: '초대 코드 생성에 실패했어요.'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   Future<void> _copyCode() async {
-    final code = _inviteCode;
+    final code = _currentInviteCode;
     if (code == null) return;
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
@@ -44,70 +75,157 @@ class _ParentConnectionScreenState extends State<ParentConnectionScreen> {
   }
 
   void _shareCode() {
-    final code = _inviteCode;
+    final code = _currentInviteCode;
     if (code == null) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('부모님 앱에서 초대 코드 $code 를 입력해주세요.')));
   }
 
+  Future<void> _logout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('로그아웃할까요?'),
+        content: const Text('현재 계정에서 로그아웃하고 로그인 화면으로 이동합니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('로그아웃'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    await ref.read(authServiceProvider).signOut();
+    ref.invalidate(currentUserProfileProvider);
+    ref.invalidate(familyMeProvider);
+    if (mounted) context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final familyState = ref.watch(familyMeProvider);
+
     return Scaffold(
       backgroundColor: ChildDashboardColors.orangePale,
       appBar: AppBar(
         backgroundColor: ChildDashboardColors.orangePale,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          '부모님 연결',
-          style: TextStyle(
-            color: ChildDashboardColors.text,
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: ChildDashboardColors.text,
-            size: 19,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: widget.showBackButton,
+        title: widget.showBackButton
+            ? const Text(
+                '부모님 연결',
+                style: TextStyle(
+                  color: ChildDashboardColors.text,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
+              )
+            : const SizedBox.shrink(),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: ChildDashboardColors.text,
+                  size: 19,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.info_outline_rounded,
-              color: ChildDashboardColors.text,
-              size: 20,
+          if (widget.showLogoutButton)
+            IconButton(
+              tooltip: '로그아웃',
+              icon: const Icon(
+                Icons.logout_rounded,
+                color: ChildDashboardColors.text,
+                size: 20,
+              ),
+              onPressed: _logout,
+            )
+          else
+            IconButton(
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: ChildDashboardColors.text,
+                size: 20,
+              ),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('초대 코드는 10분간 유효해요.')),
+                );
+              },
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('초대 코드는 10분간 유효해요.')),
-              );
-            },
-          ),
         ],
       ),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-          children: [
-            if (_connected)
-              const _ConnectedView()
-            else if (_inviteCode == null)
-              _CreateCodeView(onGenerate: _generateCode)
-            else
-              _GeneratedCodeView(
-                code: _inviteCode!,
-                expiresAt: _expiresAt!,
-                onCopy: _copyCode,
-                onShare: _shareCode,
-                onRegenerate: _generateCode,
-              ),
-          ],
+        child: familyState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _FamilyLoadError(
+            message: AuthService.messageFromError(
+              error,
+              fallback: '가족 연결 상태를 불러오지 못했어요.',
+            ),
+            onRetry: () => ref.invalidate(familyMeProvider),
+          ),
+          data: (family) {
+            final invite = _createdInvite ?? family.pendingInvite;
+            final content = family.isConnected
+                ? _ConnectedView(link: family.activeLink!)
+                : invite == null
+                ? _CreateCodeView(
+                    creating: _creating,
+                    onGenerate: _generateCode,
+                    showConnectionStatus: widget.showBackButton,
+                  )
+                : _GeneratedCodeView(
+                    code: invite.inviteCode,
+                    expiresAt:
+                        invite.expiresAt ??
+                        DateTime.now().add(const Duration(minutes: 10)),
+                    onCopy: _copyCode,
+                    onShare: _shareCode,
+                    onRegenerate: _generateCode,
+                    regenerating: _creating,
+                  );
+
+            if (!widget.showBackButton && !family.isConnected) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 28,
+                      ),
+                      child: Center(
+                        child: Transform.translate(
+                          offset: const Offset(0, -50),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: content,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+              children: [content],
+            );
+          },
         ),
       ),
     );
@@ -115,9 +233,15 @@ class _ParentConnectionScreenState extends State<ParentConnectionScreen> {
 }
 
 class _CreateCodeView extends StatelessWidget {
-  const _CreateCodeView({required this.onGenerate});
+  const _CreateCodeView({
+    required this.creating,
+    required this.onGenerate,
+    required this.showConnectionStatus,
+  });
 
+  final bool creating;
   final VoidCallback onGenerate;
+  final bool showConnectionStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -126,10 +250,10 @@ class _CreateCodeView extends StatelessWidget {
         const SizedBox(height: 12),
         Image.asset(
           'assets/images/family_invite_child.png',
-          height: 150,
+          height: 160,
           fit: BoxFit.contain,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 30),
         const Text(
           '부모님을 앱에 연결해보세요',
           textAlign: TextAlign.center,
@@ -139,7 +263,7 @@ class _CreateCodeView extends StatelessWidget {
             color: ChildDashboardColors.text,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
         const Text(
           '초대 코드를 생성한 뒤\n부모님 앱에서 입력하면 연결됩니다.',
           textAlign: TextAlign.center,
@@ -150,27 +274,29 @@ class _CreateCodeView extends StatelessWidget {
             color: ChildDashboardColors.textSub,
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 45),
         ChildPrimaryFilledButton(
-          label: '초대 코드 생성하기',
-          onPressed: onGenerate,
+          label: creating ? '생성 중...' : '초대 코드 생성하기',
+          onPressed: creating ? null : onGenerate,
           borderRadius: 10,
           labelFontWeight: FontWeight.w900,
         ),
-        const SizedBox(height: 34),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '연결 상태',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: ChildDashboardColors.text,
+        if (showConnectionStatus) ...[
+          const SizedBox(height: 34),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '연결 상태',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: ChildDashboardColors.text,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const _EmptyConnectionPanel(),
+          const SizedBox(height: 12),
+          const _EmptyConnectionPanel(),
+        ],
       ],
     );
   }
@@ -183,6 +309,7 @@ class _GeneratedCodeView extends StatelessWidget {
     required this.onCopy,
     required this.onShare,
     required this.onRegenerate,
+    required this.regenerating,
   });
 
   final String code;
@@ -190,6 +317,7 @@ class _GeneratedCodeView extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onRegenerate;
+  final bool regenerating;
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +375,7 @@ class _GeneratedCodeView extends StatelessWidget {
         const SizedBox(height: 18),
         _NoticePanel(
           lines: const ['코드는 10분간 유효합니다.', '유효 시간이 지나면 새로 생성해주세요.'],
-          onRegenerate: onRegenerate,
+          onRegenerate: regenerating ? null : onRegenerate,
         ),
       ],
     );
@@ -255,14 +383,16 @@ class _GeneratedCodeView extends StatelessWidget {
 }
 
 class _ConnectedView extends StatelessWidget {
-  const _ConnectedView();
+  const _ConnectedView({required this.link});
+
+  final FamilyLink link;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: const [
-        Text(
+      children: [
+        const Text(
           '연결된 부모님',
           style: TextStyle(
             fontSize: 15,
@@ -270,10 +400,10 @@ class _ConnectedView extends StatelessWidget {
             color: ChildDashboardColors.text,
           ),
         ),
-        SizedBox(height: 10),
-        _ConnectedParentCard(),
-        SizedBox(height: 22),
-        Text(
+        const SizedBox(height: 10),
+        _ConnectedParentCard(parentName: link.parentName),
+        const SizedBox(height: 22),
+        const Text(
           '연결 관리',
           style: TextStyle(
             fontSize: 15,
@@ -281,10 +411,12 @@ class _ConnectedView extends StatelessWidget {
             color: ChildDashboardColors.text,
           ),
         ),
-        SizedBox(height: 10),
-        _ManagementPanel(),
-        SizedBox(height: 18),
-        _NoticePanel(lines: ['연결을 해제하면 알림이 중단되고 공유 데이터도 더 이상 동기화되지 않아요.']),
+        const SizedBox(height: 10),
+        const _ManagementPanel(),
+        const SizedBox(height: 18),
+        const _NoticePanel(
+          lines: ['연결을 해제하면 알림이 중단되고 공유 데이터도 더 이상 동기화되지 않아요.'],
+        ),
       ],
     );
   }
@@ -436,7 +568,9 @@ class _OutlineActionButton extends StatelessWidget {
 }
 
 class _ConnectedParentCard extends StatelessWidget {
-  const _ConnectedParentCard();
+  const _ConnectedParentCard({required this.parentName});
+
+  final String? parentName;
 
   @override
   Widget build(BuildContext context) {
@@ -459,17 +593,17 @@ class _ConnectedParentCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  '${MockItdaData.parentDisplayName}님',
+                  _displayFamilyName(parentName, fallback: '부모님'),
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: ChildDashboardColors.text,
                   ),
                 ),
-                SizedBox(height: 6),
-                _ConnectionStatusLine(),
+                const SizedBox(height: 6),
+                const _ConnectionStatusLine(),
               ],
             ),
           ),
@@ -477,6 +611,12 @@ class _ConnectedParentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _displayFamilyName(String? value, {required String fallback}) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return fallback;
+  return trimmed.endsWith('님') ? trimmed : '$trimmed님';
 }
 
 class _ConnectionStatusLine extends StatelessWidget {
@@ -614,6 +754,38 @@ class _NoticePanel extends StatelessWidget {
             TextButton(onPressed: onRegenerate, child: const Text('새 코드 생성')),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _FamilyLoadError extends StatelessWidget {
+  const _FamilyLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: ChildDashboardColors.textSub,
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: onRetry, child: const Text('다시 시도')),
+          ],
+        ),
       ),
     );
   }

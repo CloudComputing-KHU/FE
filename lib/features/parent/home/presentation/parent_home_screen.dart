@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/theme/app_colors.dart';
 import 'package:itda/features/parent/data/parent_models.dart';
@@ -12,6 +13,7 @@ import 'package:itda/features/parent/home/presentation/parent_photo_quest_flow.d
 import 'package:itda/features/parent/home/providers/parent_home_provider.dart';
 import 'package:itda/features/parent/menu/presentation/parent_settings_screen.dart';
 import 'package:itda/features/parent/menu/presentation/past_photos_screen.dart';
+import 'package:itda/features/shared/providers/family_provider.dart';
 import 'package:itda/features/shared/providers/photo_reaction_provider.dart';
 
 /// 부모 홈 본문 텍스트 색.
@@ -62,6 +64,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   Future<void> _openPhoto(
     ParentReceivedPhoto photo,
     List<ParentReceivedPhoto> photos,
+    String childName,
   ) async {
     if (photos.isEmpty) return;
     final queue = photos
@@ -81,19 +84,45 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
         .clamp(0, queue.length - 1);
     final result = await Navigator.of(context).push<ParentPhotoReactionResult?>(
       MaterialPageRoute<ParentPhotoReactionResult?>(
-        builder: (_) => ParentPhotoQuestFlow(photos: queue, initialIndex: idx),
+        builder: (_) => ParentPhotoQuestFlow(
+          photos: queue,
+          initialIndex: idx,
+          childName: childName,
+        ),
       ),
     );
     if (!mounted) return;
     if (result != null && result.photoIds.isNotEmpty) {
-      ref
-          .read(photoReactionProvider.notifier)
-          .addReaction(
-            photoIds: result.photoIds,
-            label: result.label,
-            isVoice: result.isVoice,
-          );
-      ref.read(receivedPhotosProvider.notifier).removeByIds(result.photoIds);
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final service = ref.read(photoReactionServiceProvider);
+        for (final photoId in result.photoIds) {
+          if (result.isVoice && result.voiceFilePath != null) {
+            await service.saveVoiceReaction(
+              photoId: photoId,
+              filePath: result.voiceFilePath!,
+              durationSeconds: result.durationSeconds,
+            );
+          } else {
+            await service.saveQuickReaction(
+              photoId: photoId,
+              label: result.label,
+            );
+          }
+          ref.invalidate(photoReactionsProvider(photoId));
+        }
+        ref.read(receivedPhotosProvider.notifier).removeByIds(result.photoIds);
+        ref.invalidate(pastPhotosProvider);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result.isVoice ? '음성 반응이 저장됐어요!' : '반응이 저장됐어요!'),
+          ),
+        );
+      } catch (_) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('반응 저장에 실패했어요. 다시 시도해 주세요.')),
+        );
+      }
     }
   }
 
@@ -123,7 +152,15 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(receivedPhotosProvider);
+    final pastPhotosAsync = ref.watch(pastPhotosProvider);
     final healthQuestCompleted = ref.watch(healthQuestStepProvider);
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final family = ref.watch(familyMeProvider).valueOrNull;
+    final childName = _nonEmptyName(family?.activeLink?.childName) ?? '자녀';
+    final hasPastPhotos = pastPhotosAsync.maybeWhen(
+      data: (photos) => photos.isNotEmpty,
+      orElse: () => true,
+    );
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
@@ -132,7 +169,8 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _ParentV4Header(
-              welcomeName: MockItdaData.parentWelcomeName,
+              welcomeName:
+                  profile?.displayName ?? MockItdaData.parentWelcomeName,
               onSettings: _openSettings,
             ),
             Expanded(
@@ -144,16 +182,18 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
                       child: photosAsync.when(
                         loading: () => _BigPhotoCard(
                           photoCount: 0,
-                          childName: MockItdaData.childDisplayName,
+                          childName: childName,
                           hasNewPhotos: false,
+                          hasPastPhotos: hasPastPhotos,
                           pulseAnimation: null,
                           onTapNewPhotos: null,
                           onTapPastPhotos: _openPastPhotos,
                         ),
                         error: (_, _) => _BigPhotoCard(
                           photoCount: 0,
-                          childName: MockItdaData.childDisplayName,
+                          childName: childName,
                           hasNewPhotos: false,
+                          hasPastPhotos: hasPastPhotos,
                           pulseAnimation: null,
                           onTapNewPhotos: null,
                           onTapPastPhotos: _openPastPhotos,
@@ -162,11 +202,16 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
                           final hasPhoto = photos.isNotEmpty;
                           return _BigPhotoCard(
                             photoCount: photos.length,
-                            childName: MockItdaData.childDisplayName,
+                            childName: childName,
                             hasNewPhotos: hasPhoto,
+                            hasPastPhotos: hasPastPhotos,
                             pulseAnimation: hasPhoto ? _pulseCtrl : null,
                             onTapNewPhotos: hasPhoto
-                                ? () => _openPhoto(photos.first, photos)
+                                ? () => _openPhoto(
+                                    photos.first,
+                                    photos,
+                                    childName,
+                                  )
                                 : null,
                             onTapPastPhotos: _openPastPhotos,
                           );
@@ -189,6 +234,12 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
       ),
     );
   }
+}
+
+String? _nonEmptyName(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
 }
 
 /// 상단 인사 한 줄과 설정 버튼.
@@ -218,7 +269,7 @@ class _ParentV4Header extends StatelessWidget {
                     text: '$welcomeName님',
                     style: const TextStyle(color: ItdaColors.orangeDark),
                   ),
-                  const TextSpan(text: ' 안녕하세요'),
+                  const TextSpan(text: '\n안녕하세요'),
                 ],
               ),
             ),
@@ -263,6 +314,7 @@ class _BigPhotoCard extends StatelessWidget {
     required this.photoCount,
     required this.childName,
     required this.hasNewPhotos,
+    required this.hasPastPhotos,
     this.pulseAnimation,
     this.onTapNewPhotos,
     required this.onTapPastPhotos,
@@ -271,13 +323,16 @@ class _BigPhotoCard extends StatelessWidget {
   final int photoCount;
   final String childName;
   final bool hasNewPhotos;
+  final bool hasPastPhotos;
   final Animation<double>? pulseAnimation;
   final VoidCallback? onTapNewPhotos;
   final VoidCallback onTapPastPhotos;
 
   @override
   Widget build(BuildContext context) {
-    final onTap = hasNewPhotos ? onTapNewPhotos : onTapPastPhotos;
+    final onTap = hasNewPhotos || hasPastPhotos
+        ? (hasNewPhotos ? onTapNewPhotos : onTapPastPhotos)
+        : null;
 
     final borderColor = hasNewPhotos ? ItdaColors.orange : ItdaColors.border;
     final shadowColor = hasNewPhotos
@@ -319,7 +374,9 @@ class _BigPhotoCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: hasNewPhotos
                       ? _buildNewPhotoColumn()
-                      : _buildPastPhotoColumn(),
+                      : hasPastPhotos
+                      ? _buildPastPhotoColumn()
+                      : _buildFirstVisitPhotoColumn(),
                 ),
               ),
             ],
@@ -374,7 +431,7 @@ class _BigPhotoCard extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('🍱', style: TextStyle(fontSize: 110, height: 1)),
+        const Text('📷', style: TextStyle(fontSize: 110, height: 1)),
         const SizedBox(height: 18),
         const Text(
           '이전 사진',
@@ -388,6 +445,36 @@ class _BigPhotoCard extends StatelessWidget {
         const SizedBox(height: 10),
         const Text(
           '어제 받은 사진을\n볼까요?',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: _pTextSub,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFirstVisitPhotoColumn() {
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text('📷', style: TextStyle(fontSize: 110, height: 1)),
+        SizedBox(height: 18),
+        Text(
+          '첫 사진을 기다려요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            color: _pText,
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          '자녀가 사진을 보내면\n여기서 바로 확인할 수 있어요.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,

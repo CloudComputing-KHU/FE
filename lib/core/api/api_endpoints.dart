@@ -30,12 +30,22 @@ abstract final class ApiEndpoints {
   /// `POST /auth/refresh` — 토큰 갱신
   static const String authRefresh = '/auth/refresh';
 
+  // ==================== Family ====================
+  /// `POST /family/invites` — 가족 초대 코드 생성
+  static const String familyInvites = '/family/invites';
+
+  /// `POST /family/connect` — 가족 초대 코드로 연결
+  static const String familyConnect = '/family/connect';
+
+  /// `GET /family/me` — 내 가족 연결 상태 조회
+  static const String familyMe = '/family/me';
+
   // ==================== Questions ====================
   /// `GET /questions/{type}` — 오늘의 질문 조회 (type: health | meal | mood)
   static String questions(String type) => '/questions/$type';
 
   // ==================== Answers ====================
-  /// `POST /answers/{type}` 또는 `GET /answers/{type}?user_id=...`
+  /// `POST /answers/{type}` 또는 `GET /answers/{type}`
   static String answers(String type) => '/answers/$type';
 
   /// `POST /answers/{type}/voice` — 음성 답변 업로드 (multipart)
@@ -45,11 +55,22 @@ abstract final class ApiEndpoints {
   /// `POST /photos` — 사진 전송 (multipart)
   static const String photos = '/photos';
 
-  /// `GET /photos/received?user_id=...` — 부모가 받은 사진 목록
+  /// `GET /photos/received` — 부모가 받은 사진 목록
   static const String receivedPhotos = '/photos/received';
 
-  /// `GET /photos/history?user_id=...` — 사진 전송 내역 조회
+  /// `GET /photos/history` — 사진 전송 내역 조회
   static const String photosHistory = '/photos/history';
+
+  /// `GET /photos/{photo_id}/reactions` — 사진 반응 조회
+  static String photoReactions(String photoId) => '/photos/$photoId/reactions';
+
+  /// `POST /photos/{photo_id}/reactions/quick` — 빠른 반응 저장
+  static String photoQuickReaction(String photoId) =>
+      '/photos/$photoId/reactions/quick';
+
+  /// `POST /photos/{photo_id}/reactions/voice` — 음성 반응 저장
+  static String photoVoiceReaction(String photoId) =>
+      '/photos/$photoId/reactions/voice';
 
   // ==================== Dementia ====================
   /// `POST /dementia/analyze` — 음성 답변에 대한 치매 분석 요청
@@ -59,7 +80,7 @@ abstract final class ApiEndpoints {
   static String dementiaAnalysisById(String analysisId) =>
       '/dementia/$analysisId';
 
-  /// `GET /dementia?user_id=...` — 사용자별 분석 이력 조회
+  /// `GET /dementia` — 사용자별 분석 이력 조회
   static const String dementia = '/dementia';
 
   // ==================== Notifications ====================

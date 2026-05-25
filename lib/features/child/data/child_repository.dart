@@ -30,19 +30,14 @@ class ChildRepository {
   }
 
   /// 부모가 남긴 답변 목록을 최신순으로 조회합니다.
-  Future<List<AnswerItem>> fetchParentAnswers({
-    required String type,
-    required String parentUserId,
-  }) {
-    return _quest.getAnswers(type: type, userId: parentUserId);
+  Future<List<AnswerItem>> fetchParentAnswers({required String type}) {
+    return _quest.getAnswers(type: type);
   }
 
   // ── 자녀가 사진 보내기 ──────────────────────────────────────────────────
 
   /// 부모에게 사진을 전송합니다. [scheduledAt]이 없으면 즉시 전송.
   Future<Photo> sendPhoto({
-    required String childUserId,
-    required String parentUserId,
     required String filePath,
     Uint8List? fileBytes,
     String? fileName,
@@ -50,8 +45,6 @@ class ChildRepository {
     DateTime? scheduledAt,
   }) {
     return _photo.uploadPhoto(
-      senderUserId: childUserId,
-      receiverUserId: parentUserId,
       filePath: filePath,
       fileBytes: fileBytes,
       fileName: fileName,
@@ -61,8 +54,8 @@ class ChildRepository {
   }
 
   /// 자녀가 보낸 사진 이력을 최신순으로 조회합니다.
-  Future<List<Photo>> fetchSentPhotos(String childUserId) {
-    return _photo.getHistory(childUserId);
+  Future<List<Photo>> fetchSentPhotos() {
+    return _photo.getHistory();
   }
 
   // ── 치매 위험 분석 ───────────────────────────────────────────────────────

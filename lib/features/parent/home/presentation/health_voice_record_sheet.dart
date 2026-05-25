@@ -16,10 +16,12 @@ class HealthVoiceRecordSheet extends ConsumerStatefulWidget {
     super.key,
     required this.questionId,
     required this.questionType,
+    this.recordOnly = false,
   });
 
   final String questionId;
   final String questionType;
+  final bool recordOnly;
 
   static Future<bool?> show(
     BuildContext context, {
@@ -39,9 +41,35 @@ class HealthVoiceRecordSheet extends ConsumerStatefulWidget {
     );
   }
 
+  static Future<VoiceRecordResult?> recordFile(BuildContext context) {
+    return showModalBottomSheet<VoiceRecordResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black54,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (ctx) => const HealthVoiceRecordSheet(
+        questionId: 'photo_voice',
+        questionType: 'photo',
+        recordOnly: true,
+      ),
+    );
+  }
+
   @override
   ConsumerState<HealthVoiceRecordSheet> createState() =>
       _HealthVoiceRecordSheetState();
+}
+
+class VoiceRecordResult {
+  const VoiceRecordResult({
+    required this.filePath,
+    required this.durationSeconds,
+  });
+
+  final String filePath;
+  final int durationSeconds;
 }
 
 class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
@@ -135,6 +163,15 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
     if (!mounted) return;
     setState(() => _recording = false);
     if (path != null) {
+      if (widget.recordOnly) {
+        Navigator.of(context).pop(
+          VoiceRecordResult(
+            filePath: path,
+            durationSeconds: _stopwatch.elapsed.inSeconds,
+          ),
+        );
+        return;
+      }
       final ok = await submitParentVoice(
         ref: ref,
         type: widget.questionType,
