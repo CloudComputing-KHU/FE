@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
 import 'package:itda/core/models/photo.dart';
@@ -164,6 +165,7 @@ List<ChildCommEntry> _buildEntriesFromPhotos(
           ChildCommParentVoiceNote(
             time: _timeLabel(reaction.createdAt),
             durationLabel: reaction.durationLabel,
+            voiceUrl: reaction.displayVoiceUrl,
           ),
         );
       } else {
@@ -717,7 +719,12 @@ class _MomReactionCardRow extends StatelessWidget {
       if (e is ChildCommParentQuickReaction) {
         w.add(_ReactBadge(label: e.label));
       } else if (e is ChildCommParentVoiceNote) {
-        w.add(_VoiceMessageStrip(durationLabel: e.durationLabel));
+        w.add(
+          _VoiceMessageStrip(
+            durationLabel: e.durationLabel,
+            voiceUrl: e.voiceUrl,
+          ),
+        );
       }
     }
     return w;
@@ -791,12 +798,75 @@ class _ReactBadge extends StatelessWidget {
   }
 }
 
-class _VoiceMessageStrip extends StatelessWidget {
-  const _VoiceMessageStrip({required this.durationLabel});
+class _VoiceMessageStrip extends StatefulWidget {
+  const _VoiceMessageStrip({required this.durationLabel, this.voiceUrl});
 
   final String durationLabel;
+  final String? voiceUrl;
 
   static const List<double> _bars = [8, 14, 10, 18, 12, 20, 9, 16, 11, 14];
+
+  @override
+  State<_VoiceMessageStrip> createState() => _VoiceMessageStripState();
+}
+
+class _VoiceMessageStripState extends State<_VoiceMessageStrip> {
+  late final AudioPlayer _player;
+  bool _playing = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _player.setReleaseMode(ReleaseMode.stop);
+    _player.onPlayerStateChanged.listen((state) {
+      if (!mounted) return;
+      setState(() => _playing = state == PlayerState.playing);
+    });
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    final url = widget.voiceUrl?.trim();
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('음성 파일을 불러올 수 없어요.')));
+      return;
+    }
+
+    setState(() => _busy = true);
+    if (_playing) {
+      try {
+        await _player.stop();
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+
+    try {
+      await _player.stop();
+      await _player.play(UrlSource(url));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('음성 재생에 실패했어요: $error')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -815,40 +885,55 @@ class _VoiceMessageStrip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: ItdaColors.orange,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 18,
+          Material(
+            color: ItdaColors.orange,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: _toggle,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: _busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(7),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        _playing
+                            ? Icons.stop_rounded
+                            : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Row(
               children: [
-                for (var i = 0; i < _bars.length; i++) ...[
+                for (var i = 0; i < _VoiceMessageStrip._bars.length; i++) ...[
                   Container(
                     width: 3,
-                    height: _bars[i],
+                    height: _VoiceMessageStrip._bars[i],
                     decoration: BoxDecoration(
                       color: ItdaColors.orange.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  if (i < _bars.length - 1) const SizedBox(width: 2),
+                  if (i < _VoiceMessageStrip._bars.length - 1)
+                    const SizedBox(width: 2),
                 ],
               ],
             ),
           ),
           const SizedBox(width: 6),
           Text(
-            durationLabel,
+            widget.durationLabel,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

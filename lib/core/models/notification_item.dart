@@ -30,9 +30,25 @@ class NotificationItem {
       id: json['notification_id'] as String,
       title: json['title'] as String? ?? '',
       body: json['body'] as String? ?? '',
-      data: json['data'] as Map<String, dynamic>?,
+      data: (json['data'] as Map?)?.cast<String, dynamic>(),
       isRead: json['is_read'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: _parseBackendDateTime(json['created_at'] as String),
     );
   }
+
+  NotificationItem copyWith({bool? isRead}) {
+    return NotificationItem(
+      id: id,
+      title: title,
+      body: body,
+      data: data,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+    );
+  }
+}
+
+DateTime _parseBackendDateTime(String value) {
+  final hasTimezone = RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(value);
+  return DateTime.parse(hasTimezone ? value : '${value}Z');
 }

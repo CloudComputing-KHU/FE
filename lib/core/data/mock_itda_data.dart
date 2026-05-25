@@ -8,6 +8,7 @@ class ParentPhotoQuickReactionPreset {
 
   final String emoji;
   final String label;
+
   /// `true`면 초록 테두리, `false`면 주황 테두리 (부모 UI와 동일)
   final bool positive;
 }
@@ -59,7 +60,13 @@ class MockItdaData {
   ];
 
   static const List<String> dashboardChartLabels = [
-    '4/4', '4/5', '4/6', '4/7', '4/8', '4/9', '4/10',
+    '4/4',
+    '4/5',
+    '4/6',
+    '4/7',
+    '4/8',
+    '4/9',
+    '4/10',
   ];
   static const List<double> dashboardChartScores = [82, 85, 80, 84, 83, 85, 87];
 
@@ -85,7 +92,11 @@ class MockItdaData {
   ];
 
   static const List<Map<String, String>> recentChildFeed = [
-    {'title': '사진 전송 완료', 'subtitle': '오늘 점심 식사 — 예약 18:00', 'time': '오늘 14:20'},
+    {
+      'title': '사진 전송 완료',
+      'subtitle': '오늘 점심 식사 — 예약 18:00',
+      'time': '오늘 14:20',
+    },
     {'title': '알림', 'subtitle': '일일 건강 리포트가 도착했습니다', 'time': '어제 09:00'},
     {'title': '사진 전송 완료', 'subtitle': '산책 중 — 즉시 전송', 'time': '어제 17:05'},
   ];
@@ -97,7 +108,15 @@ class MockItdaData {
     'note': '최근 음성 응답에서 머뭇거림이 소폭 증가했습니다. 가벼운 대화를 권장합니다.',
   };
 
-  static const List<double> weeklyMoodTrend = [3.2, 3.5, 3.1, 3.8, 3.6, 3.9, 3.7];
+  static const List<double> weeklyMoodTrend = [
+    3.2,
+    3.5,
+    3.1,
+    3.8,
+    3.6,
+    3.9,
+    3.7,
+  ];
 
   static const List<Map<String, String>> questResults = [
     {'q': '오늘 기분은 어떠세요?', 'a': '괜찮아요', 'date': '4/10'},
@@ -193,13 +212,26 @@ class MockItdaData {
   ];
 
   static const String parentQuestQuestion = '이 사진, 기분 좋은 하루였나요?';
-  static const List<String> parentQuestChoices = ['네, 좋았어요', '그냥 그랬어요', '조금 피곤했어요'];
+  static const List<String> parentQuestChoices = [
+    '네, 좋았어요',
+    '그냥 그랬어요',
+    '조금 피곤했어요',
+  ];
 
   /// 부모 사진 반응 — 빠른 반응 4종 (자녀 소통 탭·부모 플로우 공통)
-  static const List<ParentPhotoQuickReactionPreset> parentPhotoQuickReactions = [
-    ParentPhotoQuickReactionPreset(emoji: '😊', label: '너무 좋아요', positive: true),
+  static const List<ParentPhotoQuickReactionPreset>
+  parentPhotoQuickReactions = [
+    ParentPhotoQuickReactionPreset(
+      emoji: '😊',
+      label: '너무 좋아요',
+      positive: true,
+    ),
     ParentPhotoQuickReactionPreset(emoji: '🥰', label: '고마워요', positive: true),
-    ParentPhotoQuickReactionPreset(emoji: '💛', label: '보고싶어요', positive: false),
+    ParentPhotoQuickReactionPreset(
+      emoji: '💛',
+      label: '보고싶어요',
+      positive: false,
+    ),
     ParentPhotoQuickReactionPreset(emoji: '👏', label: '잘했어요', positive: false),
   ];
 
@@ -218,10 +250,7 @@ class MockItdaData {
       caption: '벚꽃이 폈어요 🌸',
       time: '오후 2:11',
     ),
-    ChildCommParentQuickReaction(
-      label: '너무 좋아요',
-      time: '오후 2:12',
-    ),
+    ChildCommParentQuickReaction(label: '너무 좋아요', time: '오후 2:12'),
     ChildCommSentPhoto(
       imageUrls: const [
         'https://picsum.photos/seed/itda_comm_2a/400/400',
@@ -231,14 +260,8 @@ class MockItdaData {
       caption: '점심이랑 산책이에요',
       time: '오후 2:13',
     ),
-    ChildCommParentQuickReaction(
-      label: '고마워요',
-      time: '오후 2:13',
-    ),
-    ChildCommParentVoiceNote(
-      time: '오후 2:14',
-      durationLabel: '0:18',
-    ),
+    ChildCommParentQuickReaction(label: '고마워요', time: '오후 2:13'),
+    ChildCommParentVoiceNote(time: '오후 2:14', durationLabel: '0:18'),
     ChildCommSentPhoto(
       imageUrls: const [
         'https://picsum.photos/seed/itda_comm_5a/300/300',
@@ -284,10 +307,8 @@ final class ChildCommSentPhoto extends ChildCommEntry {
 }
 
 final class ChildCommParentQuickReaction extends ChildCommEntry {
-  const ChildCommParentQuickReaction({
-    required this.label,
-    required this.time,
-  });
+  const ChildCommParentQuickReaction({required this.label, required this.time});
+
   /// `MockItdaData.parentPhotoQuickReactions`의 `label`과 일치
   final String label;
   final String time;
@@ -297,9 +318,11 @@ final class ChildCommParentVoiceNote extends ChildCommEntry {
   const ChildCommParentVoiceNote({
     required this.time,
     this.durationLabel = '0:24',
+    this.voiceUrl,
   });
   final String time;
   final String durationLabel;
+  final String? voiceUrl;
 }
 
 /// 부모의 빠른 반응·음성이 아직 도착하지 않은 타임라인 슬롯.
@@ -322,6 +345,7 @@ class ParentPendingPhoto {
   final String imageUrl;
   final String caption;
   final String arrivedAt;
+
   /// 캐러셀 헤더에 쓰는 날짜 라벨. 같은 날짜끼리 페이지 인디케이터를 묶을 때 사용합니다.
   final String dateLabel;
   final bool isNew;

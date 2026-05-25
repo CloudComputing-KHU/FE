@@ -33,41 +33,46 @@ class TodayQuestStatus {
 
 /// `parentAnswersProvider(type)`을 3개 type 다 watch해서
 /// 오늘자 응답 여부로 합성합니다.
-final todayQuestsProvider = Provider.autoDispose<AsyncValue<List<TodayQuestStatus>>>((ref) {
-  const types = [
-    ('health', '건강 퀘스트'),
-    ('meal', '식사 퀘스트'),
-    ('mood', '기분 퀘스트'),
-  ];
+final todayQuestsProvider =
+    Provider.autoDispose<AsyncValue<List<TodayQuestStatus>>>((ref) {
+      const types = [
+        ('health', '건강 퀘스트'),
+        ('meal', '식사 퀘스트'),
+        ('mood', '기분 퀘스트'),
+      ];
 
-  final results = <TodayQuestStatus>[];
-  for (final (type, label) in types) {
-    final asyncAnswers = ref.watch(parentAnswersProvider(type));
-    if (asyncAnswers.isLoading) {
-      return const AsyncLoading();
-    }
-    if (asyncAnswers.hasError) {
-      return AsyncError(
-        asyncAnswers.error!,
-        asyncAnswers.stackTrace ?? StackTrace.current,
-      );
-    }
-    final list = asyncAnswers.value ?? const [];
-    final today = DateTime.now();
-    final todayAnswer = list.where((a) {
-      final d = a.createdAt;
-      return d.year == today.year && d.month == today.month && d.day == today.day;
-    }).firstOrNull;
+      final results = <TodayQuestStatus>[];
+      for (final (type, label) in types) {
+        final asyncAnswers = ref.watch(parentAnswersProvider(type));
+        if (asyncAnswers.isLoading) {
+          return const AsyncLoading();
+        }
+        if (asyncAnswers.hasError) {
+          return AsyncError(
+            asyncAnswers.error!,
+            asyncAnswers.stackTrace ?? StackTrace.current,
+          );
+        }
+        final list = asyncAnswers.value ?? const [];
+        final today = DateTime.now();
+        final todayAnswer = list.where((a) {
+          final d = a.createdAt.toLocal();
+          return d.year == today.year &&
+              d.month == today.month &&
+              d.day == today.day;
+        }).firstOrNull;
 
-    results.add(TodayQuestStatus(
-      type: type,
-      label: label,
-      responded: todayAnswer != null,
-      answerPreview: todayAnswer?.answer,
-    ));
-  }
-  return AsyncData(results);
-});
+        results.add(
+          TodayQuestStatus(
+            type: type,
+            label: label,
+            responded: todayAnswer != null,
+            answerPreview: todayAnswer?.answer,
+          ),
+        );
+      }
+      return AsyncData(results);
+    });
 
 // ── 대시보드 요약 — 응답 완료 카운트 ─────────────────────────────────────────
 
@@ -88,8 +93,10 @@ final riskAlertCountProvider = Provider.autoDispose<int>((ref) {
   final async = ref.watch(parentDementiaHistoryProvider);
   return async.maybeWhen(
     data: (items) => items
-        .where((i) =>
-            i.riskLevel == RiskLevel.medium || i.riskLevel == RiskLevel.high)
+        .where(
+          (i) =>
+              i.riskLevel == RiskLevel.medium || i.riskLevel == RiskLevel.high,
+        )
         .length,
     orElse: () => 0,
   );
@@ -100,13 +107,16 @@ final riskAlertCountProvider = Provider.autoDispose<int>((ref) {
 /// 위험 알림 카드 섹션에 표시할 최신 medium/high 분석 결과들 (최대 [limit]개).
 final recentRiskAlertsProvider =
     Provider.autoDispose<AsyncValue<List<DementiaAnalysisItem>>>((ref) {
-  final async = ref.watch(parentDementiaHistoryProvider);
-  return async.whenData((items) {
-    final risky = items
-        .where((i) =>
-            i.riskLevel == RiskLevel.medium || i.riskLevel == RiskLevel.high)
-        .take(2)
-        .toList();
-    return risky;
-  });
-});
+      final async = ref.watch(parentDementiaHistoryProvider);
+      return async.whenData((items) {
+        final risky = items
+            .where(
+              (i) =>
+                  i.riskLevel == RiskLevel.medium ||
+                  i.riskLevel == RiskLevel.high,
+            )
+            .take(2)
+            .toList();
+        return risky;
+      });
+    });

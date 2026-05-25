@@ -1,12 +1,12 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'package:itda/features/parent/data/parent_models.dart';
 import 'package:itda/features/parent/data/parent_repository.dart';
+import 'package:itda/features/child/health_monitoring/providers/health_provider.dart'
+    show
+        dementiaAnalysisDetailProvider,
+        parentAnswersProvider,
+        parentDementiaHistoryProvider;
 
 // ── 공용 Repository 인스턴스 ───────────────────────────────────────────────
 
@@ -16,9 +16,6 @@ final parentRepositoryProvider = Provider<ParentRepository>(
 
 // ── 받은 사진 목록 ─────────────────────────────────────────────────────────
 
-final _openedReceivedPhotoIds = <String>{};
-var _openedReceivedPhotoIdsLoaded = false;
-
 class ReceivedPhotosNotifier
     extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
   @override
@@ -26,10 +23,11 @@ class ReceivedPhotosNotifier
     return _fetchIncomingPhotos();
   }
 
-  /// 사진 확인 후 목록에서 제거합니다 (낙관적 업데이트).
+  /// 이미 확인한 사진을 현재 새 사진 목록에서 제거합니다.
+  ///
+  /// 서버도 `GET /photos/received` 호출 시 `sent` 사진을 `seen`으로 바꾸므로,
+  /// 이 메서드는 현재 화면 상태를 즉시 맞추기 위한 낙관적 업데이트입니다.
   void removeByIds(Set<String> ids) {
-    _openedReceivedPhotoIds.addAll(ids);
-    unawaited(_persistOpenedReceivedPhotoIds());
     final current = state.valueOrNull;
     if (current == null) return;
     state = AsyncData(current.where((p) => !ids.contains(p.photoId)).toList());
@@ -42,46 +40,8 @@ class ReceivedPhotosNotifier
   }
 
   Future<List<ParentReceivedPhoto>> _fetchIncomingPhotos() async {
-    await _loadOpenedReceivedPhotoIds();
     final repository = ref.read(parentRepositoryProvider);
-    final photos = await repository.fetchReceivedPhotos();
-
-    return photos
-        .where((photo) => !_openedReceivedPhotoIds.contains(photo.photoId))
-        .toList();
-  }
-}
-
-Future<File> _openedReceivedPhotoIdsFile() async {
-  final directory = await getApplicationDocumentsDirectory();
-  return File('${directory.path}/itda_opened_received_photo_ids.json');
-}
-
-Future<void> _loadOpenedReceivedPhotoIds() async {
-  if (_openedReceivedPhotoIdsLoaded) return;
-  _openedReceivedPhotoIdsLoaded = true;
-  try {
-    final file = await _openedReceivedPhotoIdsFile();
-    if (!await file.exists()) return;
-    final raw = await file.readAsString();
-    final decoded = jsonDecode(raw);
-    if (decoded is List) {
-      _openedReceivedPhotoIds
-        ..clear()
-        ..addAll(decoded.whereType<String>());
-    }
-  } catch (_) {
-    // 로컬 캐시 실패는 새 사진 조회 실패로 이어지지 않게 둡니다.
-  }
-}
-
-Future<void> _persistOpenedReceivedPhotoIds() async {
-  try {
-    final file = await _openedReceivedPhotoIdsFile();
-    final ids = _openedReceivedPhotoIds.toList()..sort();
-    await file.writeAsString(jsonEncode(ids), flush: true);
-  } catch (_) {
-    // 저장 실패 시에도 현재 세션에서는 메모리 Set으로 숨김 처리를 유지합니다.
+    return repository.fetchReceivedPhotos();
   }
 }
 
@@ -122,6 +82,15 @@ final questionProvider = FutureProvider.autoDispose
       return ref.read(parentRepositoryProvider).fetchQuestion(type);
     });
 
+final todayQuestionStatusProvider =
+    FutureProvider.autoDispose<ParentQuestionStatus>((ref) async {
+      final status = await ref
+          .read(parentRepositoryProvider)
+          .fetchTodayQuestionStatus();
+      ref.read(healthQuestStepProvider.notifier).state = status.completedStep;
+      return status;
+    });
+
 // ── 건강 퀘스트 완료 단계 ──────────────────────────────────────────────────
 
 /// 0 = 아무것도 안 함, 1 = health 완료, 2 = meal 완료, 3 = mood 완료(전체 완료)
@@ -142,6 +111,8 @@ Future<bool> submitParentAnswer({
         .read(parentRepositoryProvider)
         .submitAnswer(type: type, questionId: questionId, answer: answer);
     ref.read(healthQuestStepProvider.notifier).update((s) => s + 1);
+    ref.invalidate(todayQuestionStatusProvider);
+    ref.invalidate(parentAnswersProvider(type));
     return true;
   } catch (_) {
     return false;
@@ -160,13 +131,17 @@ Future<bool> submitParentVoice({
         .read(parentRepositoryProvider)
         .uploadVoice(type: type, questionId: questionId, filePath: filePath);
     try {
-      await ref
+      final analysis = await ref
           .read(parentRepositoryProvider)
           .requestDementiaAnalysis(result.answerId);
+      ref.invalidate(parentDementiaHistoryProvider);
+      ref.invalidate(dementiaAnalysisDetailProvider(analysis.analysisId));
     } catch (_) {
       // 음성 답변 저장은 성공했으므로 분석 트리거 실패가 답변 제출 실패로 보이지 않게 둡니다.
     }
     ref.read(healthQuestStepProvider.notifier).update((s) => s + 1);
+    ref.invalidate(todayQuestionStatusProvider);
+    ref.invalidate(parentAnswersProvider(type));
     return true;
   } catch (_) {
     return false;

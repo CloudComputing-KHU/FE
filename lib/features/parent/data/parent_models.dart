@@ -1,5 +1,6 @@
 /// parent 기능에서 사용하는 API 응답 모델들.
 /// 백엔드 스키마(app/schemas/)와 1:1 대응합니다.
+library;
 
 class ParentQuestion {
   const ParentQuestion({
@@ -23,6 +24,53 @@ class ParentQuestion {
       text: json['text'] as String,
       options: (json['options'] as List<dynamic>).cast<String>(),
       allowVoice: json['allow_voice'] as bool? ?? false,
+    );
+  }
+}
+
+class ParentQuestionStatus {
+  const ParentQuestionStatus({
+    required this.userId,
+    required this.healthAnswered,
+    required this.mealAnswered,
+    required this.moodAnswered,
+    required this.completedCount,
+    required this.nextType,
+    required this.allAnswered,
+  });
+
+  final String userId;
+  final bool healthAnswered;
+  final bool mealAnswered;
+  final bool moodAnswered;
+  final int completedCount;
+  final String nextType;
+  final bool allAnswered;
+
+  int get completedStep => allAnswered ? 3 : completedCount.clamp(0, 3);
+
+  int get nextStep {
+    if (allAnswered) return 3;
+    switch (nextType) {
+      case 'meal':
+        return 1;
+      case 'mood':
+        return 2;
+      case 'health':
+      default:
+        return 0;
+    }
+  }
+
+  factory ParentQuestionStatus.fromJson(Map<String, dynamic> json) {
+    return ParentQuestionStatus(
+      userId: json['user_id'] as String? ?? '',
+      healthAnswered: json['health_answered'] as bool? ?? false,
+      mealAnswered: json['meal_answered'] as bool? ?? false,
+      moodAnswered: json['mood_answered'] as bool? ?? false,
+      completedCount: json['completed_count'] as int? ?? 0,
+      nextType: json['next_type'] as String? ?? 'health',
+      allAnswered: json['all_answered'] as bool? ?? false,
     );
   }
 }

@@ -44,12 +44,14 @@ class PhotoReactionService {
         ? await MultipartFile.fromFile(
             filePath,
             filename: fileName ?? filePath.split('/').last,
+            contentType: DioMediaType('audio', 'mp4'),
           )
         : MultipartFile.fromBytes(
             fileBytes,
             filename: fileName == null || fileName.isEmpty
                 ? 'voice.m4a'
                 : fileName,
+            contentType: DioMediaType('audio', 'mp4'),
           );
     final formData = FormData.fromMap({
       'file': file,

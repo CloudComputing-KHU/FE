@@ -107,7 +107,7 @@ class DementiaAnalysisResponse {
       answerId: json['answer_id'] as String,
       userId: json['user_id'] as String,
       status: DementiaAnalysisStatus.fromString(json['status'] as String?),
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: _parseBackendDateTime(json['created_at'] as String),
     );
   }
 }
@@ -158,7 +158,7 @@ class DementiaAnalysisResult {
       answerId: json['answer_id'] as String,
       userId: json['user_id'] as String,
       status: DementiaAnalysisStatus.fromString(json['status'] as String?),
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: _parseBackendDateTime(json['created_at'] as String),
       transcript: json['transcript'] as String?,
       riskLevel: json['risk_level'] != null
           ? RiskLevel.fromString(json['risk_level'] as String)
@@ -167,7 +167,7 @@ class DementiaAnalysisResult {
       analysisSummary: json['analysis_summary'] as String?,
       indicators: (json['indicators'] as List<dynamic>?)?.cast<String>(),
       completedAt: json['completed_at'] != null
-          ? DateTime.parse(json['completed_at'] as String)
+          ? _parseBackendDateTime(json['completed_at'] as String)
           : null,
     );
   }
@@ -202,14 +202,19 @@ class DementiaAnalysisItem {
       answerId: json['answer_id'] as String,
       userId: json['user_id'] as String,
       status: DementiaAnalysisStatus.fromString(json['status'] as String?),
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: _parseBackendDateTime(json['created_at'] as String),
       riskLevel: json['risk_level'] != null
           ? RiskLevel.fromString(json['risk_level'] as String)
           : null,
       riskScore: (json['risk_score'] as num?)?.toDouble(),
       completedAt: json['completed_at'] != null
-          ? DateTime.parse(json['completed_at'] as String)
+          ? _parseBackendDateTime(json['completed_at'] as String)
           : null,
     );
   }
+}
+
+DateTime _parseBackendDateTime(String value) {
+  final hasTimezone = RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(value);
+  return DateTime.parse(hasTimezone ? value : '${value}Z');
 }

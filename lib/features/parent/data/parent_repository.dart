@@ -27,6 +27,14 @@ class ParentRepository {
     return ParentQuestion.fromJson(res.data!);
   }
 
+  /// 오늘 질문 답변 진행 상태를 조회합니다.
+  Future<ParentQuestionStatus> fetchTodayQuestionStatus() async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      ApiEndpoints.questionStatusToday,
+    );
+    return ParentQuestionStatus.fromJson(res.data!);
+  }
+
   // ── Answers ────────────────────────────────────────────────────────────────
 
   /// 선택형 답변을 제출합니다.
@@ -55,7 +63,11 @@ class ParentRepository {
     final fileName = filePath.split('/').last;
     final formData = FormData.fromMap({
       'question_id': questionId,
-      'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      'file': await MultipartFile.fromFile(
+        filePath,
+        filename: fileName,
+        contentType: DioMediaType('audio', 'mp4'),
+      ),
     });
     final res = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.voiceAnswer(type),
@@ -81,11 +93,10 @@ class ParentRepository {
   }
 
   /// 지난 사진 이력을 조회합니다.
-  ///
-  /// 부모 화면에서는 "내가 보낸 사진"이 아니라 "연결된 자녀에게 받은 사진"을
-  /// 다시 보는 흐름이므로 `/photos/received`를 사용합니다.
   Future<List<ParentReceivedPhoto>> fetchPhotoHistory() async {
-    final res = await _dio.get<List<dynamic>>(ApiEndpoints.receivedPhotos);
+    final res = await _dio.get<List<dynamic>>(
+      ApiEndpoints.receivedPhotosHistory,
+    );
     return (res.data ?? [])
         .cast<Map<String, dynamic>>()
         .map(ParentReceivedPhoto.fromJson)

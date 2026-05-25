@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itda/core/models/photo.dart';
 import 'package:itda/features/child/health_monitoring/providers/health_provider.dart'
     show childRepositoryProvider;
+import 'package:itda/features/parent/home/providers/parent_home_provider.dart'
+    show receivedPhotosProvider;
 import 'package:itda/features/shared/providers/family_provider.dart';
 
 /// 사진 전송 중 여부. 업로드 시작/종료 시 갱신합니다.
@@ -47,6 +49,8 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
         );
     // 보낸 이력 캐시 무효화 → 다음 조회 시 새로 fetch
     ref.invalidate(sentPhotosProvider);
+    // 같은 앱에서 부모 화면으로 전환해 테스트하는 경우 새 사진 목록도 다시 fetch
+    ref.invalidate(receivedPhotosProvider);
     return PhotoUploadOutcome(
       ok: true,
       message: scheduledAt == null ? '사진을 보냈어요!' : '예약 전송이 등록됐어요!',

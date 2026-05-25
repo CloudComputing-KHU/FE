@@ -59,7 +59,7 @@ class AnswerItem {
       questionId: json['question_id'] as String,
       type: json['type'] as String,
       answerType: json['answer_type'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: _parseBackendDateTime(json['created_at'] as String),
       answer: json['answer'] as String?,
       voiceStatus: json['voice_status'] as String?,
       voiceFileKey: json['voice_file_key'] as String?,
@@ -70,4 +70,9 @@ class AnswerItem {
       fileSize: json['file_size'] as int?,
     );
   }
+}
+
+DateTime _parseBackendDateTime(String value) {
+  final hasTimezone = RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(value);
+  return DateTime.parse(hasTimezone ? value : '${value}Z');
 }

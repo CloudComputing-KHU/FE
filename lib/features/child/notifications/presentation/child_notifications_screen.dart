@@ -15,6 +15,13 @@ class ChildNotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationsAsync = ref.watch(notificationsProvider);
+    final unreadCount = ref
+        .watch(unreadNotificationsProvider)
+        .maybeWhen(data: (items) => items.length, orElse: () => 0);
+    Future<void> refreshNotifications() async {
+      await ref.read(notificationsProvider.notifier).refresh();
+      await ref.read(unreadNotificationsProvider.notifier).refresh();
+    }
 
     return Scaffold(
       backgroundColor: ChildDashboardColors.orangePale,
@@ -36,30 +43,45 @@ class ChildNotificationsScreen extends ConsumerWidget {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (unreadCount > 0)
+            IconButton(
+              tooltip: '모두 읽음',
+              icon: const Icon(Icons.done_all_rounded),
+              onPressed: () =>
+                  ref.read(notificationsProvider.notifier).markAllRead(),
+            ),
+        ],
       ),
-      body: notificationsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: ChildDashboardColors.orange),
-        ),
-        error: (e, _) => _ErrorView(
-          onRetry: () => ref.read(notificationsProvider.notifier).refresh(),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return const _EmptyView();
-          }
-          return RefreshIndicator(
-            color: ChildDashboardColors.orange,
-            onRefresh: () =>
-                ref.read(notificationsProvider.notifier).refresh(),
-            child: ListView(
+      body: RefreshIndicator(
+        color: ChildDashboardColors.orange,
+        onRefresh: refreshNotifications,
+        child: notificationsAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              color: ChildDashboardColors.orange,
+            ),
+          ),
+          error: (e, _) => _ErrorView(onRetry: refreshNotifications),
+          data: (items) {
+            if (items.isEmpty) {
+              return const _EmptyView();
+            }
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
-                _NotificationSectionCard(items: items),
+                _NotificationSectionCard(
+                  items: items,
+                  onTapItem: (item) {
+                    if (item.isRead) return;
+                    ref.read(notificationsProvider.notifier).markRead(item.id);
+                  },
+                ),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -67,9 +89,13 @@ class ChildNotificationsScreen extends ConsumerWidget {
 
 /// 알림들을 흰 카드 + 내부 구분선으로 묶음.
 class _NotificationSectionCard extends StatelessWidget {
-  const _NotificationSectionCard({required this.items});
+  const _NotificationSectionCard({
+    required this.items,
+    required this.onTapItem,
+  });
 
   final List<NotificationItem> items;
+  final ValueChanged<NotificationItem> onTapItem;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +122,10 @@ class _NotificationSectionCard extends StatelessWidget {
                   thickness: 1,
                   color: ChildDashboardColors.border.withValues(alpha: 0.5),
                 ),
-              _NotificationTile(item: items[i]),
+              _NotificationTile(
+                item: items[i],
+                onTap: () => onTapItem(items[i]),
+              ),
             ],
           ],
         ),
@@ -106,70 +135,81 @@ class _NotificationSectionCard extends StatelessWidget {
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.item});
+  const _NotificationTile({required this.item, required this.onTap});
 
   final NotificationItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _LeadingIcon(),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 1.35,
-                          color: ChildDashboardColors.text,
+    final titleColor = item.isRead
+        ? ChildDashboardColors.textSub
+        : ChildDashboardColors.text;
+    final bodyColor = item.isRead
+        ? ChildDashboardColors.textMuted
+        : ChildDashboardColors.textSub;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _LeadingIcon(isRead: item.isRead),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            height: 1.35,
+                            color: titleColor,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _formatTime(item.createdAt),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: ChildDashboardColors.textMuted,
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTime(item.createdAt),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: ChildDashboardColors.textMuted,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  item.body,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: ChildDashboardColors.textSub,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    item.body,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: bodyColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   /// 생성 시각을 "방금 전 / N분 전 / N시간 전 / N일 전"으로 표시.
   static String _formatTime(DateTime time) {
-    final diff = DateTime.now().difference(time);
+    final diff = DateTime.now().difference(time.toLocal());
     if (diff.inMinutes < 1) return '방금 전';
     if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
@@ -178,7 +218,9 @@ class _NotificationTile extends StatelessWidget {
 }
 
 class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon();
+  const _LeadingIcon({required this.isRead});
+
+  final bool isRead;
 
   @override
   Widget build(BuildContext context) {
@@ -186,14 +228,18 @@ class _LeadingIcon extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: ChildDashboardColors.orangeLight,
+        color: isRead
+            ? ChildDashboardColors.border.withValues(alpha: 0.4)
+            : ChildDashboardColors.orangeLight,
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
-      child: const Icon(
+      child: Icon(
         Icons.notifications_rounded,
         size: 24,
-        color: ChildDashboardColors.orangeDark,
+        color: isRead
+            ? ChildDashboardColors.textMuted
+            : ChildDashboardColors.orangeDark,
       ),
     );
   }
@@ -206,6 +252,7 @@ class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 80, 16, 28),
       children: const [
         Icon(
@@ -242,10 +289,7 @@ class _ErrorView extends StatelessWidget {
         children: [
           const Text(
             '알림을 불러오지 못했어요.',
-            style: TextStyle(
-              fontSize: 14,
-              color: ChildDashboardColors.textSub,
-            ),
+            style: TextStyle(fontSize: 14, color: ChildDashboardColors.textSub),
           ),
           const SizedBox(height: 8),
           TextButton(onPressed: onRetry, child: const Text('다시 시도')),
