@@ -4,21 +4,23 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
+import 'package:itda/services/fcm_service.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -37,8 +39,10 @@ class _SplashScreenState extends State<SplashScreen> {
       final role = await TokenStorage.readCurrentRole();
       if (!mounted) return;
       if (role == 'child') {
+        unawaited(ref.read(fcmServiceProvider).initialize());
         context.go(AppRoutes.child);
       } else if (role == 'parent') {
+        unawaited(ref.read(fcmServiceProvider).initialize());
         context.go(AppRoutes.parent);
       } else {
         await TokenStorage.clear();
