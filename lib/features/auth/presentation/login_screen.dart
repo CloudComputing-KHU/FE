@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import 'package:itda/core/auth/auth_service.dart';
 import 'package:itda/core/auth/token_storage.dart';
 import 'package:itda/core/router/routes.dart';
 import 'package:itda/core/theme/app_colors.dart';
+import 'package:itda/services/fcm_service.dart';
 import 'package:itda/shared/widgets/itda_chrome.dart';
 import 'package:itda/shared/widgets/itda_primary_button.dart';
 
@@ -47,6 +50,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .login(email: email, password: password);
       ref.read(authSessionProvider.notifier).state = true;
       ref.invalidate(currentUserProfileProvider);
+      // 로그인 직후 FCM 토큰 등록 (BE 401 회피를 위해 세션 플래그 이후에 시작).
+      // 권한 다이얼로그/네트워크가 홈 진입을 막지 않도록 await 하지 않습니다.
+      unawaited(ref.read(fcmServiceProvider).initialize());
       if (!mounted) return;
       final role = await TokenStorage.readCurrentRole();
       if (!mounted) return;
