@@ -45,6 +45,7 @@ class DementiaService {
     final list = response.data as List<dynamic>;
     return list
         .map((e) => DementiaAnalysisItem.fromJson(e as Map<String, dynamic>))
-        .toList();
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 }

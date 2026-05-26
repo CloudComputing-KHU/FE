@@ -27,6 +27,7 @@ class AuthInterceptor extends Interceptor {
         err.response?.statusCode == 401 &&
         !alreadyRetried &&
         request.path != ApiEndpoints.authLogin &&
+        request.path != ApiEndpoints.authLogout &&
         request.path != ApiEndpoints.authRefresh;
 
     if (!canRefresh) {

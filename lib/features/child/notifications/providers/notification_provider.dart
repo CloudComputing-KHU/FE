@@ -23,9 +23,67 @@ class NotificationsNotifier
       () => ref.read(notificationServiceProvider).getNotifications(),
     );
   }
+
+  Future<void> markRead(String notificationId) async {
+    final previous = state;
+    state = state.whenData(
+      (items) => [
+        for (final item in items)
+          if (item.id == notificationId) item.copyWith(isRead: true) else item,
+      ],
+    );
+
+    final result = await AsyncValue.guard(
+      () => ref.read(notificationServiceProvider).markRead(notificationId),
+    );
+    if (result.hasError) {
+      state = previous;
+      return;
+    }
+    ref.invalidate(unreadNotificationsProvider);
+  }
+
+  Future<void> markAllRead() async {
+    final previous = state;
+    state = state.whenData(
+      (items) => [for (final item in items) item.copyWith(isRead: true)],
+    );
+
+    final result = await AsyncValue.guard(
+      () => ref.read(notificationServiceProvider).markAllRead(),
+    );
+    if (result.hasError) {
+      state = previous;
+      return;
+    }
+    ref.invalidate(unreadNotificationsProvider);
+  }
 }
 
 final notificationsProvider =
-    AsyncNotifierProvider.autoDispose<NotificationsNotifier, List<NotificationItem>>(
-  NotificationsNotifier.new,
-);
+    AsyncNotifierProvider.autoDispose<
+      NotificationsNotifier,
+      List<NotificationItem>
+    >(NotificationsNotifier.new);
+
+/// 읽지 않은 알림 목록을 BE에서 불러옵니다.
+class UnreadNotificationsNotifier
+    extends AutoDisposeAsyncNotifier<List<NotificationItem>> {
+  @override
+  Future<List<NotificationItem>> build() {
+    return ref.read(notificationServiceProvider).getUnreadNotifications();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(notificationServiceProvider).getUnreadNotifications(),
+    );
+  }
+}
+
+final unreadNotificationsProvider =
+    AsyncNotifierProvider.autoDispose<
+      UnreadNotificationsNotifier,
+      List<NotificationItem>
+    >(UnreadNotificationsNotifier.new);

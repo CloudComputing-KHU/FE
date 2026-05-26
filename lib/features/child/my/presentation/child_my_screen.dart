@@ -10,6 +10,7 @@ import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
+import 'package:itda/services/local_notification_service.dart';
 
 /// 마이 탭 — 자녀 셸 팔레트·탭 헤더(가운데 제목)와 맞춤
 class ChildMyScreen extends ConsumerWidget {
@@ -40,6 +41,22 @@ class ChildMyScreen extends ConsumerWidget {
     await ref.read(authServiceProvider).signOut();
     ref.invalidate(currentUserProfileProvider);
     if (context.mounted) context.go(AppRoutes.login);
+  }
+
+  Future<void> _showDemoNotification(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('3초 뒤 테스트 알림이 도착해요.')));
+
+    final ok = await LocalNotificationService.instance
+        .showPhotoReactionDemoAfterDelay();
+    if (!context.mounted) return;
+    if (!ok) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('알림 권한을 허용해야 테스트 알림을 받을 수 있어요.')),
+      );
+    }
   }
 
   @override
@@ -140,6 +157,13 @@ class ChildMyScreen extends ConsumerWidget {
                         icon: Icons.notifications_outlined,
                         title: '알림 설정',
                         onTap: () {},
+                      ),
+                      const Divider(height: 1),
+                      _MyTile(
+                        icon: Icons.notifications_active_outlined,
+                        title: '테스트 알림 받기',
+                        subtitle: '3초 뒤 인앱 알림 표시',
+                        onTap: () => _showDemoNotification(context),
                       ),
                       const Divider(height: 1),
                       _MyTile(

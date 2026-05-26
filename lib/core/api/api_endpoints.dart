@@ -30,6 +30,9 @@ abstract final class ApiEndpoints {
   /// `POST /auth/refresh` — 토큰 갱신
   static const String authRefresh = '/auth/refresh';
 
+  /// `POST /auth/logout` — 로그아웃
+  static const String authLogout = '/auth/logout';
+
   // ==================== Family ====================
   /// `POST /family/invites` — 가족 초대 코드 생성
   static const String familyInvites = '/family/invites';
@@ -44,6 +47,9 @@ abstract final class ApiEndpoints {
   /// `GET /questions/{type}` — 오늘의 질문 조회 (type: health | meal | mood)
   static String questions(String type) => '/questions/$type';
 
+  /// `GET /questions/status/today` — 오늘 질문 답변 상태 조회
+  static const String questionStatusToday = '/questions/status/today';
+
   // ==================== Answers ====================
   /// `POST /answers/{type}` 또는 `GET /answers/{type}`
   static String answers(String type) => '/answers/$type';
@@ -57,6 +63,9 @@ abstract final class ApiEndpoints {
 
   /// `GET /photos/received` — 부모가 받은 사진 목록
   static const String receivedPhotos = '/photos/received';
+
+  /// `GET /photos/received/history` — 부모가 받은 사진 이력 조회
+  static const String receivedPhotosHistory = '/photos/received/history';
 
   /// `GET /photos/history` — 사진 전송 내역 조회
   static const String photosHistory = '/photos/history';
@@ -89,4 +98,14 @@ abstract final class ApiEndpoints {
 
   /// `GET /notifications` — 알림 목록 조회
   static const String notifications = '/notifications';
+
+  /// `GET /notifications/unread` — 읽지 않은 알림 목록 조회
+  static const String unreadNotifications = '/notifications/unread';
+
+  /// `PATCH /notifications/{notification_id}/read` — 알림 단건 읽음 처리
+  static String notificationRead(String notificationId) =>
+      '/notifications/$notificationId/read';
+
+  /// `PATCH /notifications/read-all` — 모든 알림 읽음 처리
+  static const String notificationsReadAll = '/notifications/read-all';
 }

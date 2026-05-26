@@ -65,8 +65,16 @@ class ParentHealthQuestScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _openVoice(BuildContext context, String questionId) {
-    return HealthVoiceRecordSheet.show(context, questionId: questionId);
+  Future<void> _openVoice(
+    BuildContext context,
+    String questionId,
+    String type,
+  ) {
+    return HealthVoiceRecordSheet.show(
+      context,
+      questionId: questionId,
+      questionType: type,
+    );
   }
 
   static String _appBarTitleForStep(int step) {
@@ -399,7 +407,7 @@ class ParentHealthQuestScreen extends ConsumerWidget {
                         onTap: () {
                           final qId =
                               questionAsync.valueOrNull?.questionId ?? type;
-                          _openVoice(context, qId);
+                          _openVoice(context, qId, type);
                         },
                         borderRadius: BorderRadius.circular(18),
                         child: const Padding(

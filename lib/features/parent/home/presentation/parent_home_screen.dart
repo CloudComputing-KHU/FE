@@ -46,7 +46,6 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   void initState() {
     super.initState();
     _initPulse();
-    Future.microtask(() => ref.invalidate(receivedPhotosProvider));
   }
 
   @override
@@ -82,6 +81,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     final idx = queue
         .indexWhere((p) => p.id == photo.photoId)
         .clamp(0, queue.length - 1);
+    final openedPhotoIds = queue.map((p) => p.id).toSet();
     final result = await Navigator.of(context).push<ParentPhotoReactionResult?>(
       MaterialPageRoute<ParentPhotoReactionResult?>(
         builder: (_) => ParentPhotoQuestFlow(
@@ -92,6 +92,8 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
       ),
     );
     if (!mounted) return;
+    ref.read(receivedPhotosProvider.notifier).removeByIds(openedPhotoIds);
+    ref.invalidate(pastPhotosProvider);
     if (result != null && result.photoIds.isNotEmpty) {
       final messenger = ScaffoldMessenger.of(context);
       try {
@@ -111,8 +113,6 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           }
           ref.invalidate(photoReactionsProvider(photoId));
         }
-        ref.read(receivedPhotosProvider.notifier).removeByIds(result.photoIds);
-        ref.invalidate(pastPhotosProvider);
         messenger.showSnackBar(
           SnackBar(
             content: Text(result.isVoice ? '음성 반응이 저장됐어요!' : '반응이 저장됐어요!'),
@@ -133,7 +133,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
   }
 
   void _openHealthQuest() {
-    final step = ref.read(healthQuestStepProvider);
+    final status = ref.read(todayQuestionStatusProvider).valueOrNull;
+    final step =
+        status?.completedStep ?? ref.read(healthQuestStepProvider) ?? 0;
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ParentHealthQuestScreen(
@@ -149,87 +151,118 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
   }
 
+  Future<void> _refreshHome() async {
+    await Future.wait([
+      ref.read(receivedPhotosProvider.notifier).refresh(),
+      ref.read(pastPhotosProvider.notifier).refresh(),
+      ref.refresh(todayQuestionStatusProvider.future),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(receivedPhotosProvider);
     final pastPhotosAsync = ref.watch(pastPhotosProvider);
-    final healthQuestCompleted = ref.watch(healthQuestStepProvider);
+    final questionStatusAsync = ref.watch(todayQuestionStatusProvider);
+    final localHealthQuestCompleted = ref.watch(healthQuestStepProvider);
+    final healthQuestCompleted = questionStatusAsync.maybeWhen(
+      data: (status) => status.completedStep,
+      orElse: () => localHealthQuestCompleted,
+    );
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final family = ref.watch(familyMeProvider).valueOrNull;
     final childName = _nonEmptyName(family?.activeLink?.childName) ?? '자녀';
     final hasPastPhotos = pastPhotosAsync.maybeWhen(
       data: (photos) => photos.isNotEmpty,
-      orElse: () => true,
+      orElse: () => false,
     );
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _ParentV4Header(
-              welcomeName:
-                  profile?.displayName ?? MockItdaData.parentWelcomeName,
-              onSettings: _openSettings,
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        child: RefreshIndicator(
+          color: ItdaColors.orange,
+          onRefresh: _refreshHome,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              SizedBox(
+                height:
+                    MediaQuery.sizeOf(context).height -
+                    MediaQuery.paddingOf(context).top,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: photosAsync.when(
-                        loading: () => _BigPhotoCard(
-                          photoCount: 0,
-                          childName: childName,
-                          hasNewPhotos: false,
-                          hasPastPhotos: hasPastPhotos,
-                          pulseAnimation: null,
-                          onTapNewPhotos: null,
-                          onTapPastPhotos: _openPastPhotos,
-                        ),
-                        error: (_, _) => _BigPhotoCard(
-                          photoCount: 0,
-                          childName: childName,
-                          hasNewPhotos: false,
-                          hasPastPhotos: hasPastPhotos,
-                          pulseAnimation: null,
-                          onTapNewPhotos: null,
-                          onTapPastPhotos: _openPastPhotos,
-                        ),
-                        data: (photos) {
-                          final hasPhoto = photos.isNotEmpty;
-                          return _BigPhotoCard(
-                            photoCount: photos.length,
-                            childName: childName,
-                            hasNewPhotos: hasPhoto,
-                            hasPastPhotos: hasPastPhotos,
-                            pulseAnimation: hasPhoto ? _pulseCtrl : null,
-                            onTapNewPhotos: hasPhoto
-                                ? () => _openPhoto(
-                                    photos.first,
-                                    photos,
-                                    childName,
-                                  )
-                                : null,
-                            onTapPastPhotos: _openPastPhotos,
-                          );
-                        },
-                      ),
+                    _ParentV4Header(
+                      welcomeName:
+                          profile?.displayName ??
+                          MockItdaData.parentWelcomeName,
+                      onSettings: _openSettings,
                     ),
-                    const SizedBox(height: 16),
                     Expanded(
-                      child: _BigHealthCard(
-                        completedSteps: healthQuestCompleted,
-                        onTap: _openHealthQuest,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: photosAsync.when(
+                                loading: () => _BigPhotoCard(
+                                  photoCount: 0,
+                                  childName: childName,
+                                  hasNewPhotos: false,
+                                  hasPastPhotos: hasPastPhotos,
+                                  pulseAnimation: null,
+                                  onTapNewPhotos: null,
+                                  onTapPastPhotos: _openPastPhotos,
+                                ),
+                                error: (_, _) => _BigPhotoCard(
+                                  photoCount: 0,
+                                  childName: childName,
+                                  hasNewPhotos: false,
+                                  hasPastPhotos: hasPastPhotos,
+                                  pulseAnimation: null,
+                                  onTapNewPhotos: null,
+                                  onTapPastPhotos: _openPastPhotos,
+                                ),
+                                data: (photos) {
+                                  final hasPhoto = photos.isNotEmpty;
+                                  return _BigPhotoCard(
+                                    photoCount: photos.length,
+                                    childName: childName,
+                                    hasNewPhotos: hasPhoto,
+                                    hasPastPhotos: hasPastPhotos,
+                                    pulseAnimation: hasPhoto
+                                        ? _pulseCtrl
+                                        : null,
+                                    onTapNewPhotos: hasPhoto
+                                        ? () => _openPhoto(
+                                            photos.first,
+                                            photos,
+                                            childName,
+                                          )
+                                        : null,
+                                    onTapPastPhotos: _openPastPhotos,
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Expanded(
+                              child: _BigHealthCard(
+                                completedSteps: healthQuestCompleted,
+                                onTap: _openHealthQuest,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
