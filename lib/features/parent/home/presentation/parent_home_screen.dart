@@ -60,76 +60,68 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     );
   }
 
-  Future<void> _openPhoto(
+  Future<void> _openPhotoQuest(
     ParentReceivedPhoto photo,
     List<ParentReceivedPhoto> photos,
     String childName,
   ) async {
     if (photos.isEmpty) return;
-    final queue = photos
-        .map(
-          (p) => ParentPendingPhoto(
-            id: p.photoId,
-            imageUrl: p.displayUrl,
-            caption: p.caption ?? '',
-            arrivedAt: _relativeTime(p.createdAt),
-            dateLabel: _dateLabel(p.createdAt),
-            isNew: true,
-          ),
-        )
-        .toList();
-    final idx = queue
-        .indexWhere((p) => p.id == photo.photoId)
-        .clamp(0, queue.length - 1);
-    final openedPhotoIds = queue.map((p) => p.id).toSet();
-    final result = await Navigator.of(context).push<ParentPhotoReactionResult?>(
-      MaterialPageRoute<ParentPhotoReactionResult?>(
+    final idx = photos
+        .indexWhere((p) => p.photoId == photo.photoId)
+        .clamp(0, photos.length - 1);
+    final pendingPhotos = photos.map(_toPendingPhoto).toList();
+    final result = await Navigator.of(context).push<ParentPhotoReactionResult>(
+      MaterialPageRoute<ParentPhotoReactionResult>(
         builder: (_) => ParentPhotoQuestFlow(
-          photos: queue,
-          initialIndex: idx,
+          photos: pendingPhotos,
           childName: childName,
+          initialIndex: idx,
         ),
       ),
     );
-    if (!mounted) return;
-    ref.read(receivedPhotosProvider.notifier).removeByIds(openedPhotoIds);
-    ref.invalidate(pastPhotosProvider);
-    if (result != null && result.photoIds.isNotEmpty) {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final service = ref.read(photoReactionServiceProvider);
-        for (final photoId in result.photoIds) {
-          if (result.isVoice && result.voiceFilePath != null) {
-            await service.saveVoiceReaction(
-              photoId: photoId,
-              filePath: result.voiceFilePath!,
-              durationSeconds: result.durationSeconds,
-            );
-          } else {
-            await service.saveQuickReaction(
-              photoId: photoId,
-              label: result.label,
-            );
-          }
-          ref.invalidate(photoReactionsProvider(photoId));
+    if (!mounted || result == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final reactionService = ref.read(photoReactionServiceProvider);
+      for (final photoId in result.photoIds) {
+        if (result.isVoice && result.voiceFilePath != null) {
+          await reactionService.saveVoiceReaction(
+            photoId: photoId,
+            filePath: result.voiceFilePath!,
+            durationSeconds: result.durationSeconds,
+          );
+        } else {
+          await reactionService.saveQuickReaction(
+            photoId: photoId,
+            label: result.label,
+          );
         }
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(result.isVoice ? '음성 반응이 저장됐어요!' : '반응이 저장됐어요!'),
-          ),
-        );
-      } catch (_) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('반응 저장에 실패했어요. 다시 시도해 주세요.')),
-        );
+        ref.invalidate(photoReactionsProvider(photoId));
       }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('답장 전송에 실패했어요: $error')));
+      return;
     }
+    if (result.photoIds.isNotEmpty) {
+      ref.read(receivedPhotosProvider.notifier).removeByIds(result.photoIds);
+    }
+    ref.invalidate(pastPhotosProvider);
+    messenger.showSnackBar(
+      SnackBar(content: Text('「${result.label}」로 응답했어요.')),
+    );
   }
 
   void _openPastPhotos() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const PastPhotosScreen()),
     );
+  }
+
+  void _showPhotoLockedMessage() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('먼저 질문 3개만 답해주세요!')));
   }
 
   void _openHealthQuest() {
@@ -176,6 +168,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
       data: (photos) => photos.isNotEmpty,
       orElse: () => false,
     );
+    final photoLocked = healthQuestCompleted < 3;
 
     return Scaffold(
       backgroundColor: ItdaColors.orangePale,
@@ -210,39 +203,62 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
                                 loading: () => _BigPhotoCard(
                                   photoCount: 0,
                                   childName: childName,
+                                  locked: photoLocked,
                                   hasNewPhotos: false,
                                   hasPastPhotos: hasPastPhotos,
                                   pulseAnimation: null,
-                                  onTapNewPhotos: null,
-                                  onTapPastPhotos: _openPastPhotos,
+                                  onTapNewPhotos: photoLocked
+                                      ? _showPhotoLockedMessage
+                                      : null,
+                                  onTapPastPhotos: photoLocked
+                                      ? _showPhotoLockedMessage
+                                      : _openPastPhotos,
                                 ),
                                 error: (_, _) => _BigPhotoCard(
                                   photoCount: 0,
                                   childName: childName,
+                                  locked: photoLocked,
                                   hasNewPhotos: false,
                                   hasPastPhotos: hasPastPhotos,
                                   pulseAnimation: null,
-                                  onTapNewPhotos: null,
-                                  onTapPastPhotos: _openPastPhotos,
+                                  onTapNewPhotos: photoLocked
+                                      ? _showPhotoLockedMessage
+                                      : null,
+                                  onTapPastPhotos: photoLocked
+                                      ? _showPhotoLockedMessage
+                                      : _openPastPhotos,
                                 ),
                                 data: (photos) {
-                                  final hasPhoto = photos.isNotEmpty;
+                                  final pastPhotos =
+                                      pastPhotosAsync.valueOrNull ??
+                                      const <ParentReceivedPhoto>[];
+                                  final allPhotos = _mergeReceivedPhotos(
+                                    photos,
+                                    pastPhotos,
+                                  );
+                                  final hasNewPhoto = photos.isNotEmpty;
+                                  final hasAnyPhoto = allPhotos.isNotEmpty;
                                   return _BigPhotoCard(
-                                    photoCount: photos.length,
+                                    photoCount: allPhotos.length,
                                     childName: childName,
-                                    hasNewPhotos: hasPhoto,
-                                    hasPastPhotos: hasPastPhotos,
-                                    pulseAnimation: hasPhoto
+                                    locked: photoLocked,
+                                    hasNewPhotos: hasNewPhoto,
+                                    hasPastPhotos: hasPastPhotos || hasAnyPhoto,
+                                    pulseAnimation: hasNewPhoto && !photoLocked
                                         ? _pulseCtrl
                                         : null,
-                                    onTapNewPhotos: hasPhoto
-                                        ? () => _openPhoto(
-                                            photos.first,
-                                            photos,
-                                            childName,
-                                          )
+                                    onTapNewPhotos: hasAnyPhoto
+                                        ? photoLocked
+                                              ? _showPhotoLockedMessage
+                                              : () => _openPhotoQuest(
+                                                  photos.first,
+                                                  photos,
+                                                  childName,
+                                                )
                                         : null,
-                                    onTapPastPhotos: _openPastPhotos,
+                                    onTapPastPhotos: photoLocked
+                                        ? _showPhotoLockedMessage
+                                        : _openPastPhotos,
                                   );
                                 },
                               ),
@@ -273,6 +289,42 @@ String? _nonEmptyName(String? value) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) return null;
   return trimmed;
+}
+
+ParentPendingPhoto _toPendingPhoto(ParentReceivedPhoto photo) {
+  return ParentPendingPhoto(
+    id: photo.photoId,
+    imageUrl: photo.displayUrl,
+    caption: photo.caption ?? '',
+    arrivedAt: _formatArrivedAt(photo.createdAt),
+    dateLabel: _formatDateLabel(photo.createdAt),
+    isNew: photo.status == 'sent',
+  );
+}
+
+String _formatDateLabel(DateTime date) {
+  final local = date.toLocal();
+  return '${local.month}월 ${local.day}일';
+}
+
+String _formatArrivedAt(DateTime date) {
+  final local = date.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+List<ParentReceivedPhoto> _mergeReceivedPhotos(
+  List<ParentReceivedPhoto> newPhotos,
+  List<ParentReceivedPhoto> pastPhotos,
+) {
+  final byId = <String, ParentReceivedPhoto>{
+    for (final photo in pastPhotos) photo.photoId: photo,
+    for (final photo in newPhotos) photo.photoId: photo,
+  };
+  final merged = byId.values.toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return merged;
 }
 
 /// 상단 인사 한 줄과 설정 버튼.
@@ -346,6 +398,7 @@ class _BigPhotoCard extends StatelessWidget {
   const _BigPhotoCard({
     required this.photoCount,
     required this.childName,
+    required this.locked,
     required this.hasNewPhotos,
     required this.hasPastPhotos,
     this.pulseAnimation,
@@ -355,6 +408,7 @@ class _BigPhotoCard extends StatelessWidget {
 
   final int photoCount;
   final String childName;
+  final bool locked;
   final bool hasNewPhotos;
   final bool hasPastPhotos;
   final Animation<double>? pulseAnimation;
@@ -363,12 +417,20 @@ class _BigPhotoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onTap = hasNewPhotos || hasPastPhotos
+    final hasAnyPhotos = hasNewPhotos || hasPastPhotos;
+    final effectiveLocked = locked && hasNewPhotos;
+    final onTap = effectiveLocked
+        ? (onTapNewPhotos ?? onTapPastPhotos)
+        : hasAnyPhotos
         ? (hasNewPhotos ? onTapNewPhotos : onTapPastPhotos)
         : null;
 
-    final borderColor = hasNewPhotos ? ItdaColors.orange : ItdaColors.border;
-    final shadowColor = hasNewPhotos
+    final borderColor = effectiveLocked
+        ? ItdaColors.border
+        : hasNewPhotos
+        ? ItdaColors.orange
+        : ItdaColors.border;
+    final shadowColor = hasNewPhotos && !effectiveLocked
         ? ItdaColors.orange.withValues(alpha: 0.18)
         : const Color(0x14000000);
 
@@ -393,7 +455,7 @@ class _BigPhotoCard extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              if (hasNewPhotos)
+              if (hasNewPhotos && !effectiveLocked)
                 Positioned(
                   top: 16,
                   left: 16,
@@ -405,7 +467,9 @@ class _BigPhotoCard extends StatelessWidget {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: hasNewPhotos
+                  child: effectiveLocked
+                      ? _buildLockedPhotoColumn()
+                      : hasNewPhotos
                       ? _buildNewPhotoColumn()
                       : hasPastPhotos
                       ? _buildPastPhotoColumn()
@@ -477,11 +541,41 @@ class _BigPhotoCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          '어제 받은 사진을\n볼까요?',
+          '지금까지 받은 사진을\n볼 수 있어요!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
+            color: _pTextSub,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLockedPhotoColumn() {
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.lock_rounded, size: 104, color: ItdaColors.orangeDark),
+        SizedBox(height: 18),
+        Text(
+          '사진이 도착했어요!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            color: _pText,
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          '먼저 질문 3개만\n답해주세요!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
             color: _pTextSub,
             height: 1.5,
           ),
@@ -497,7 +591,7 @@ class _BigPhotoCard extends StatelessWidget {
         Text('📷', style: TextStyle(fontSize: 110, height: 1)),
         SizedBox(height: 18),
         Text(
-          '첫 사진을 기다려요',
+          '오늘은 아직\n사진이 안왔어요.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 30,
@@ -597,25 +691,34 @@ class _BigHealthCard extends StatelessWidget {
     final done = completedSteps >= 3;
     final c = completedSteps.clamp(0, 3);
 
-    final String emoji;
+    final Widget visual;
     final String title;
     final String desc;
     if (done) {
-      emoji = '🌼';
+      visual = const Text(
+        '🌼',
+        style: TextStyle(fontSize: _emojiSize, height: 1),
+      );
       title = '모두 완료!';
       desc = '오늘의 질문에 모두\n답해주셨어요. 고마워요!';
     } else if (c == 2) {
-      emoji = '😊';
-      title = '기분 질문';
-      desc = '오늘의 기분 질문에\n답해주세요';
+      visual = const Text(
+        '😊',
+        style: TextStyle(fontSize: _emojiSize, height: 1),
+      );
+      title = '오늘 하루 어땠나요?';
+      desc = '자녀가 궁금해하는\n오늘의 질문에 대답해주세요.';
     } else if (c == 1) {
-      emoji = '🍱';
-      title = '식사 질문';
-      desc = '오늘의 식사 질문에\n답해주세요';
+      visual = const Text(
+        '🍱',
+        style: TextStyle(fontSize: _emojiSize, height: 1),
+      );
+      title = '오늘 하루 어땠나요?';
+      desc = '자녀가 궁금해하는\n오늘의 질문에 대답해주세요.';
     } else {
-      emoji = '💊';
-      title = '건강 질문';
-      desc = '오늘의 건강 질문에\n답해주세요';
+      visual = const _QuestionPersonVisual(size: _emojiSize);
+      title = '오늘 하루 어땠나요?';
+      desc = '자녀가 궁금해하는\n오늘의 질문에 대답해주세요.';
     }
 
     final titleColor = done ? _questSuccessGreen : _pText;
@@ -647,10 +750,7 @@ class _BigHealthCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    emoji,
-                    style: const TextStyle(fontSize: _emojiSize, height: 1),
-                  ),
+                  visual,
                   const SizedBox(height: 18),
                   Text(
                     title,
@@ -685,6 +785,67 @@ class _BigHealthCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _QuestionPersonVisual extends StatelessWidget {
+  const _QuestionPersonVisual({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size * 0.82,
+            height: size * 0.82,
+            decoration: BoxDecoration(
+              color: ItdaColors.orangePale,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: ItdaColors.orange.withValues(alpha: 0.32),
+                width: 3,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.person_rounded,
+            size: size * 0.72,
+            color: ItdaColors.orangeDark,
+          ),
+          Positioned(
+            top: size * 0.02,
+            right: size * 0.02,
+            child: Container(
+              width: size * 0.36,
+              height: size * 0.36,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: ItdaColors.orange, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: ItdaColors.orange.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.question_mark_rounded,
+                size: size * 0.22,
+                color: ItdaColors.orangeDark,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -735,18 +896,4 @@ class _ProgressSegment extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── 날짜 헬퍼 ──────────────────────────────────────────────────────────────
-
-String _relativeTime(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return '방금 전';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
-  if (diff.inHours < 24) return '${diff.inHours}시간 전';
-  return '${diff.inDays}일 전';
-}
-
-String _dateLabel(DateTime dt) {
-  return '${dt.month}월 ${dt.day}일';
 }

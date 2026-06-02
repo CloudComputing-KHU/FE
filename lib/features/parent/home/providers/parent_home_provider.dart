@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/features/parent/data/parent_models.dart';
@@ -18,8 +20,15 @@ final parentRepositoryProvider = Provider<ParentRepository>(
 
 class ReceivedPhotosNotifier
     extends AutoDisposeAsyncNotifier<List<ParentReceivedPhoto>> {
+  Timer? _pollTimer;
+  bool _fetching = false;
+
   @override
   Future<List<ParentReceivedPhoto>> build() async {
+    ref.onDispose(() => _pollTimer?.cancel());
+    _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      refresh(showLoading: false);
+    });
     return _fetchIncomingPhotos();
   }
 
@@ -34,14 +43,38 @@ class ReceivedPhotosNotifier
   }
 
   /// 서버에서 다시 불러옵니다.
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_fetchIncomingPhotos);
+  Future<void> refresh({bool showLoading = true}) async {
+    if (_fetching) return;
+    _fetching = true;
+    if (showLoading) state = const AsyncLoading();
+    final previous = state.valueOrNull ?? const <ParentReceivedPhoto>[];
+    final result = await AsyncValue.guard(_fetchIncomingPhotos);
+    state = result.when(
+      data: (latest) => AsyncData(_mergePhotos(previous, latest)),
+      error: (error, stackTrace) => previous.isNotEmpty
+          ? AsyncData(previous)
+          : AsyncError(error, stackTrace),
+      loading: () => AsyncData(previous),
+    );
+    _fetching = false;
   }
 
   Future<List<ParentReceivedPhoto>> _fetchIncomingPhotos() async {
     final repository = ref.read(parentRepositoryProvider);
     return repository.fetchReceivedPhotos();
+  }
+
+  List<ParentReceivedPhoto> _mergePhotos(
+    List<ParentReceivedPhoto> previous,
+    List<ParentReceivedPhoto> latest,
+  ) {
+    final byId = <String, ParentReceivedPhoto>{
+      for (final photo in previous) photo.photoId: photo,
+      for (final photo in latest) photo.photoId: photo,
+    };
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
   }
 }
 

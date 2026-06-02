@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itda/core/models/answer_item.dart';
@@ -16,17 +18,38 @@ final childRepositoryProvider = Provider<ChildRepository>(
 /// `health`, `meal`, `mood` 어느 것이든 같은 패턴으로 사용합니다.
 class ParentAnswersNotifier
     extends AutoDisposeFamilyAsyncNotifier<List<AnswerItem>, String> {
+  Timer? _pollTimer;
+  bool _fetching = false;
+
   @override
   Future<List<AnswerItem>> build(String type) async {
-    return ref.read(childRepositoryProvider).fetchParentAnswers(type: type);
+    ref.onDispose(() => _pollTimer?.cancel());
+    _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      refresh(showLoading: false);
+    });
+    return _fetchAnswers(type);
   }
 
   /// 서버에서 다시 불러옵니다.
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(childRepositoryProvider).fetchParentAnswers(type: arg),
+  Future<void> refresh({bool showLoading = true}) async {
+    if (_fetching) return;
+    _fetching = true;
+    if (showLoading) state = const AsyncLoading();
+    final previous = state.valueOrNull;
+    final result = await AsyncValue.guard(() => _fetchAnswers(arg));
+    state = result.when(
+      data: AsyncData.new,
+      error: (error, stackTrace) => previous != null
+          ? AsyncData(previous)
+          : AsyncError(error, stackTrace),
+      loading: () =>
+          previous != null ? AsyncData(previous) : const AsyncLoading(),
     );
+    _fetching = false;
+  }
+
+  Future<List<AnswerItem>> _fetchAnswers(String type) {
+    return ref.read(childRepositoryProvider).fetchParentAnswers(type: type);
   }
 }
 
@@ -44,16 +67,37 @@ final healthRefreshProvider = StateProvider<int>((ref) => 0);
 /// "AI 음성 분석 · 위험 알림" 섹션에서 가장 최근 결과를 표시할 때 사용.
 class ParentDementiaHistoryNotifier
     extends AutoDisposeAsyncNotifier<List<DementiaAnalysisItem>> {
+  Timer? _pollTimer;
+  bool _fetching = false;
+
   @override
   Future<List<DementiaAnalysisItem>> build() async {
-    return ref.read(childRepositoryProvider).fetchParentDementiaHistory();
+    ref.onDispose(() => _pollTimer?.cancel());
+    _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      refresh(showLoading: false);
+    });
+    return _fetchHistory();
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(childRepositoryProvider).fetchParentDementiaHistory(),
+  Future<void> refresh({bool showLoading = true}) async {
+    if (_fetching) return;
+    _fetching = true;
+    if (showLoading) state = const AsyncLoading();
+    final previous = state.valueOrNull;
+    final result = await AsyncValue.guard(_fetchHistory);
+    state = result.when(
+      data: AsyncData.new,
+      error: (error, stackTrace) => previous != null
+          ? AsyncData(previous)
+          : AsyncError(error, stackTrace),
+      loading: () =>
+          previous != null ? AsyncData(previous) : const AsyncLoading(),
     );
+    _fetching = false;
+  }
+
+  Future<List<DementiaAnalysisItem>> _fetchHistory() {
+    return ref.read(childRepositoryProvider).fetchParentDementiaHistory();
   }
 }
 
