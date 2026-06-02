@@ -1,5 +1,4 @@
-/// 자녀 탭 「홈」: 상단 히어로 인사 카드·요약 카드·오늘의 퀘스트 응답은
-/// 모크/프로바이더 데이터를 사용하고, [ChildHealthTrendPanel]은 건강 탭에서 재사용합니다.
+/// 자녀 탭 「홈」: 상단 히어로 인사 카드·요약 카드·오늘의 퀘스트 응답을 표시합니다.
 library;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -24,9 +23,8 @@ class ChildHomeScreen extends ConsumerWidget {
     final todayQuestsAsync = ref.watch(todayQuestsProvider);
     final answeredCount = ref.watch(answeredCountTodayProvider);
     final riskCount = ref.watch(riskAlertCountProvider);
+    final questStreak = ref.watch(questStreakProvider);
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
-    final streakTile = MockItdaData.dashboardSummaryTiles[3];
-    final streakText = '${streakTile.value}${streakTile.unit}';
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
@@ -68,7 +66,7 @@ class ChildHomeScreen extends ConsumerWidget {
                     Expanded(
                       child: ChildHomeStatCard(
                         icon: Icons.local_fire_department_outlined,
-                        valueText: streakText,
+                        valueText: '$questStreak일',
                         label: '연속 기록',
                       ),
                     ),
