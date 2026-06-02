@@ -10,10 +10,28 @@ import 'package:itda/shared/widgets/round_white_icon_button.dart';
 
 /// 새 사진 보기와 동일 레이아웃 — 날짜·같은 날 도트 · 스와이프 · 이전/다음 (반응 플로우 없음)
 class PastPhotosScreen extends ConsumerWidget {
-  const PastPhotosScreen({super.key});
+  const PastPhotosScreen({
+    super.key,
+    this.initialPhotos,
+    this.initialIndex = 0,
+  });
+
+  final List<ParentReceivedPhoto>? initialPhotos;
+  final int initialIndex;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final providedPhotos = initialPhotos;
+    if (providedPhotos != null) {
+      if (providedPhotos.isEmpty) {
+        return const _EmptyPastPhotosScaffold();
+      }
+      return _PastPhotosView(
+        photos: providedPhotos,
+        initialIndex: initialIndex,
+      );
+    }
+
     final photosAsync = ref.watch(pastPhotosProvider);
 
     return photosAsync.when(
@@ -41,8 +59,13 @@ class PastPhotosScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('사진을 불러오지 못했어요.',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      const Text(
+                        '사진을 불러오지 못했어요.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: () =>
@@ -59,31 +82,7 @@ class PastPhotosScreen extends ConsumerWidget {
       ),
       data: (photos) {
         if (photos.isEmpty) {
-          return Scaffold(
-            backgroundColor: ItdaColors.orangePale,
-            body: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                    child: RoundWhiteIconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icons.chevron_left_rounded,
-                    ),
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        '저장된 사진이 없어요',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return const _EmptyPastPhotosScaffold();
         }
         // 데이터가 있으면 실제 스크롤 화면으로 넘깁니다.
         return _PastPhotosView(photos: photos);
@@ -93,12 +92,46 @@ class PastPhotosScreen extends ConsumerWidget {
 }
 
 class _PastPhotosView extends StatefulWidget {
-  const _PastPhotosView({required this.photos});
+  const _PastPhotosView({required this.photos, this.initialIndex = 0});
 
   final List<ParentReceivedPhoto> photos;
+  final int initialIndex;
 
   @override
   State<_PastPhotosView> createState() => _PastPhotosViewState();
+}
+
+class _EmptyPastPhotosScaffold extends StatelessWidget {
+  const _EmptyPastPhotosScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ItdaColors.orangePale,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              child: RoundWhiteIconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icons.chevron_left_rounded,
+              ),
+            ),
+            const Expanded(
+              child: Center(
+                child: Text(
+                  '저장된 사진이 없어요',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PastPhotosViewState extends State<_PastPhotosView> {
@@ -122,8 +155,8 @@ class _PastPhotosViewState extends State<_PastPhotosView> {
           ),
         )
         .toList();
-    _pageIndex = 0;
-    _pageController = PageController();
+    _pageIndex = widget.initialIndex.clamp(0, _photos.length - 1);
+    _pageController = PageController(initialPage: _pageIndex);
     _rebuildDateIndex();
   }
 
@@ -202,7 +235,9 @@ class _PastPhotosViewState extends State<_PastPhotosView> {
                             label: '이전',
                             icon: Icons.chevron_left_rounded,
                             iconAfter: false,
-                            onPressed: atFirst ? null : () => _goPage(_pageIndex - 1),
+                            onPressed: atFirst
+                                ? null
+                                : () => _goPage(_pageIndex - 1),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -211,7 +246,9 @@ class _PastPhotosViewState extends State<_PastPhotosView> {
                             label: '다음',
                             icon: Icons.chevron_right_rounded,
                             iconAfter: true,
-                            onPressed: atLast ? null : () => _goPage(_pageIndex + 1),
+                            onPressed: atLast
+                                ? null
+                                : () => _goPage(_pageIndex + 1),
                           ),
                         ),
                       ],

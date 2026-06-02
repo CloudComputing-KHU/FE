@@ -56,24 +56,40 @@ class ParentHealthQuestScreen extends ConsumerWidget {
       answer: summary,
     );
     if (!context.mounted) return;
-    Navigator.of(context).pop();
-    onAnswered(summary);
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('답변 저장에 실패했어요. 다시 시도해 주세요.')),
       );
+      return;
     }
+    onAnswered(summary);
+    _advanceAfterAnswer(context);
   }
 
   Future<void> _openVoice(
     BuildContext context,
     String questionId,
     String type,
-  ) {
-    return HealthVoiceRecordSheet.show(
+  ) async {
+    final ok = await HealthVoiceRecordSheet.show(
       context,
       questionId: questionId,
       questionType: type,
+    );
+    if (!context.mounted || ok != true) return;
+    _advanceAfterAnswer(context);
+  }
+
+  void _advanceAfterAnswer(BuildContext context) {
+    final nextStep = stepIndex + 1;
+    if (nextStep >= 3) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ParentHealthQuestScreen(stepIndex: nextStep),
+      ),
     );
   }
 
