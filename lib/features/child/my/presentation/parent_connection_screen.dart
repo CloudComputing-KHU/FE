@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +32,8 @@ class _ParentConnectionScreenState
     extends ConsumerState<ParentConnectionScreen> {
   FamilyInvite? _createdInvite;
   bool _creating = false;
+  bool _checkingConnection = false;
+  Timer? _connectionPollTimer;
 
   String? get _currentInviteCode {
     final created = _createdInvite?.inviteCode;
@@ -47,6 +51,7 @@ class _ParentConnectionScreenState
       if (!mounted) return;
       setState(() => _createdInvite = invite);
       ref.invalidate(familyMeProvider);
+      _startConnectionPolling();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(invite.message ?? '초대 코드가 생성됐어요.')),
       );
@@ -62,6 +67,55 @@ class _ParentConnectionScreenState
     } finally {
       if (mounted) setState(() => _creating = false);
     }
+  }
+
+  Future<void> _checkConnection({
+    bool showWaitingMessage = true,
+    bool showProgress = true,
+  }) async {
+    if (showProgress && _checkingConnection) return;
+    if (showProgress) setState(() => _checkingConnection = true);
+    try {
+      final family = await ref.read(familyServiceProvider).getMyFamily();
+      if (!mounted) return;
+      if (family.isConnected) {
+        _connectionPollTimer?.cancel();
+        ref.invalidate(familyMeProvider);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('부모님 연결이 완료됐어요.')));
+        return;
+      }
+      if (showWaitingMessage) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('아직 부모님 연결을 기다리고 있어요.')));
+      }
+    } catch (error) {
+      if (!mounted || !showWaitingMessage) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AuthService.messageFromError(error, fallback: '연결 상태를 확인하지 못했어요.'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && showProgress) setState(() => _checkingConnection = false);
+    }
+  }
+
+  void _startConnectionPolling() {
+    _connectionPollTimer?.cancel();
+    _connectionPollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      final family = ref.read(familyMeProvider).valueOrNull;
+      if (family?.isConnected == true) {
+        _connectionPollTimer?.cancel();
+        return;
+      }
+      _checkConnection(showWaitingMessage: false, showProgress: false);
+    });
   }
 
   Future<void> _copyCode() async {
@@ -106,6 +160,12 @@ class _ParentConnectionScreenState
     ref.invalidate(currentUserProfileProvider);
     ref.invalidate(familyMeProvider);
     if (mounted) context.go(AppRoutes.login);
+  }
+
+  @override
+  void dispose() {
+    _connectionPollTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -178,6 +238,12 @@ class _ParentConnectionScreenState
           ),
           data: (family) {
             final invite = _createdInvite ?? family.pendingInvite;
+            if (invite != null && !family.isConnected) {
+              _connectionPollTimer ??= Timer(
+                Duration.zero,
+                _startConnectionPolling,
+              );
+            }
             final content = family.isConnected
                 ? _ConnectedView(link: family.activeLink!)
                 : invite == null
@@ -194,7 +260,9 @@ class _ParentConnectionScreenState
                     onCopy: _copyCode,
                     onShare: _shareCode,
                     onRegenerate: _generateCode,
+                    onCheckConnection: _checkConnection,
                     regenerating: _creating,
+                    checkingConnection: _checkingConnection,
                   );
 
             if (!widget.showBackButton && !family.isConnected) {
@@ -309,7 +377,9 @@ class _GeneratedCodeView extends StatelessWidget {
     required this.onCopy,
     required this.onShare,
     required this.onRegenerate,
+    required this.onCheckConnection,
     required this.regenerating,
+    required this.checkingConnection,
   });
 
   final String code;
@@ -317,7 +387,9 @@ class _GeneratedCodeView extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onRegenerate;
+  final VoidCallback onCheckConnection;
   final bool regenerating;
+  final bool checkingConnection;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +445,13 @@ class _GeneratedCodeView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        ChildPrimaryFilledButton(
+          label: checkingConnection ? '확인 중...' : '연결 확인하기',
+          onPressed: checkingConnection ? null : onCheckConnection,
+          borderRadius: 10,
+          labelFontWeight: FontWeight.w900,
+        ),
+        const SizedBox(height: 12),
         _NoticePanel(
           lines: const ['코드는 10분간 유효합니다.', '유효 시간이 지나면 새로 생성해주세요.'],
           onRegenerate: regenerating ? null : onRegenerate,
