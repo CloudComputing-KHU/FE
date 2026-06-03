@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,16 +68,35 @@ Future<PhotoUploadOutcome> uploadChildPhoto({
 /// 자녀가 부모에게 보낸 사진 목록 (최신순).
 /// 화면에서 미사용이라도 미리 정의해두면 추후 "보낸 사진 모아보기" 화면에서 그대로 사용 가능.
 class SentPhotosNotifier extends AutoDisposeAsyncNotifier<List<Photo>> {
+  Timer? _pollTimer;
+  bool _fetching = false;
+
   @override
   Future<List<Photo>> build() async {
+    ref.onDispose(() => _pollTimer?.cancel());
+    _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      refresh(showLoading: false);
+    });
     return ref.read(childRepositoryProvider).fetchSentPhotos();
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
+  Future<void> refresh({bool showLoading = true}) async {
+    if (_fetching) return;
+    _fetching = true;
+    if (showLoading) state = const AsyncLoading();
+    final previous = state.valueOrNull;
+    final result = await AsyncValue.guard(
       () => ref.read(childRepositoryProvider).fetchSentPhotos(),
     );
+    state = result.when(
+      data: AsyncData.new,
+      error: (error, stackTrace) => previous != null
+          ? AsyncData(previous)
+          : AsyncError(error, stackTrace),
+      loading: () =>
+          previous != null ? AsyncData(previous) : const AsyncLoading(),
+    );
+    _fetching = false;
   }
 }
 

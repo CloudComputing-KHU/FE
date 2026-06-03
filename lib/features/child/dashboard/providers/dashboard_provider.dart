@@ -86,6 +86,32 @@ final answeredCountTodayProvider = Provider.autoDispose<int>((ref) {
   );
 });
 
+/// 부모가 health/meal/mood 3개 질문을 모두 답한 날짜를 기준으로 계산한 연속 기록.
+/// 오늘 3개가 모두 완료되지 않았으면 0일부터 시작합니다.
+final questStreakProvider = Provider.autoDispose<int>((ref) {
+  const types = ['health', 'meal', 'mood'];
+  final completedDatesByType = <String, Set<DateTime>>{};
+
+  for (final type in types) {
+    final asyncAnswers = ref.watch(parentAnswersProvider(type));
+    final answers = asyncAnswers.valueOrNull;
+    if (answers == null) return 0;
+    completedDatesByType[type] = {
+      for (final answer in answers) _dateOnly(answer.createdAt.toLocal()),
+    };
+  }
+
+  var cursor = _dateOnly(DateTime.now());
+  var streak = 0;
+  while (types.every((type) => completedDatesByType[type]!.contains(cursor))) {
+    streak += 1;
+    cursor = cursor.subtract(const Duration(days: 1));
+  }
+  return streak;
+});
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
 // ── 대시보드 요약 — 위험 알림 카운트 ─────────────────────────────────────────
 
 /// `parentDementiaHistoryProvider`에서 risk_level이 medium/high인 항목 수.

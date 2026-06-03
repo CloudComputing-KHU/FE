@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:itda/features/child/photo_upload/providers/upload_provider.dart';
+import 'package:itda/features/child/shell/providers/child_shell_tab_provider.dart';
 import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_shell_chrome.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
@@ -148,6 +149,7 @@ class _PhotoUploadScreenState extends ConsumerState<PhotoUploadScreen> {
         _scheduledAt = null;
         _captionCtrl.clear();
       });
+      ref.read(childShellTabProvider.notifier).state = 0;
     }
   }
 
