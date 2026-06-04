@@ -20,9 +20,9 @@ class MockItdaData {
 
   /// 부모 홈 상단 인사 이름.
   static const String parentWelcomeName = '영자';
-  static const String parentHomeQuestQuestion = '오늘 약은\n드셨어요?';
-  static const String parentHomeQuestQuestionMeal = '오늘 식사는\n잘 하셨어요?';
-  static const String parentHomeQuestQuestionMood = '오늘 기분은\n어떠세요?';
+  static const String parentHomeQuestQuestion = '최근 병원이나\n약국에 가셨어요?';
+  static const String parentHomeQuestQuestionMeal = '오늘 아침이나\n점심은요?';
+  static const String parentHomeQuestQuestionMood = '이번 주 계획이\n있으세요?';
 
   /// 자녀 대시보드 상단 인사 한 줄.
   static const String dashboardGreetingLine =
@@ -86,8 +86,8 @@ class MockItdaData {
   ];
 
   static const List<DashboardTodayQuest> dashboardTodayQuests = [
-    DashboardTodayQuest(q: '오늘 약 드셨어요?', positive: true),
-    DashboardTodayQuest(q: '아침 식사 하셨어요?', positive: true),
+    DashboardTodayQuest(q: '병원이나 약국에 가셨어요?', positive: true),
+    DashboardTodayQuest(q: '아침이나 점심은 드셨어요?', positive: true),
     DashboardTodayQuest(q: '어제 잘 주무셨어요?', positive: false),
   ];
 
