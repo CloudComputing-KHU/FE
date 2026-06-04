@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import 'package:itda/core/api/api_client.dart';
@@ -58,22 +60,44 @@ class ParentRepository {
   Future<ParentVoiceUploadResult> uploadVoice({
     required String type,
     required String questionId,
-    required String filePath,
+    String? filePath,
+    Uint8List? fileBytes,
+    String? fileName,
+    String? contentType,
   }) async {
-    final fileName = filePath.split('/').last;
+    if (filePath == null && fileBytes == null) {
+      throw ArgumentError('filePath 또는 fileBytes가 필요합니다.');
+    }
+    final resolvedFileName =
+        fileName ?? filePath?.split('/').last ?? 'voice.m4a';
     final formData = FormData.fromMap({
       'question_id': questionId,
-      'file': await MultipartFile.fromFile(
-        filePath,
-        filename: fileName,
-        contentType: DioMediaType('audio', 'mp4'),
-      ),
+      'file': fileBytes == null
+          ? await MultipartFile.fromFile(
+              filePath!,
+              filename: resolvedFileName,
+              contentType: _mediaType(contentType),
+            )
+          : MultipartFile.fromBytes(
+              fileBytes,
+              filename: resolvedFileName,
+              contentType: _mediaType(contentType),
+            ),
     });
     final res = await _dio.post<Map<String, dynamic>>(
       ApiEndpoints.voiceAnswer(type),
       data: formData,
     );
     return ParentVoiceUploadResult.fromJson(res.data!);
+  }
+
+  DioMediaType _mediaType(String? value) {
+    final fallback = DioMediaType('audio', 'mp4');
+    if (value == null || value.trim().isEmpty) return fallback;
+    final media = value.split(';').first.trim();
+    final slash = media.indexOf('/');
+    if (slash <= 0 || slash == media.length - 1) return fallback;
+    return DioMediaType(media.substring(0, slash), media.substring(slash + 1));
   }
 
   Future<DementiaAnalysisResponse> requestDementiaAnalysis(String answerId) {

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import 'package:itda/core/data/mock_itda_data.dart';
@@ -12,6 +14,9 @@ class ParentPhotoReactionResult {
     required this.label,
     this.isVoice = false,
     this.voiceFilePath,
+    this.voiceFileBytes,
+    this.voiceFileName,
+    this.voiceContentType,
     this.durationSeconds,
   });
 
@@ -19,6 +24,9 @@ class ParentPhotoReactionResult {
   final String label;
   final bool isVoice;
   final String? voiceFilePath;
+  final Uint8List? voiceFileBytes;
+  final String? voiceFileName;
+  final String? voiceContentType;
   final int? durationSeconds;
 }
 
@@ -203,6 +211,9 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                           summary, {
                                           isVoice = false,
                                           voiceFilePath,
+                                          voiceFileBytes,
+                                          voiceFileName,
+                                          voiceContentType,
                                           durationSeconds,
                                         }) {
                                           if (!mounted) return;
@@ -214,6 +225,10 @@ class _ParentPhotoQuestFlowState extends State<ParentPhotoQuestFlow>
                                               label: summary,
                                               isVoice: isVoice,
                                               voiceFilePath: voiceFilePath,
+                                              voiceFileBytes: voiceFileBytes,
+                                              voiceFileName: voiceFileName,
+                                              voiceContentType:
+                                                  voiceContentType,
                                               durationSeconds: durationSeconds,
                                             ),
                                           );
@@ -389,6 +404,9 @@ class _ReactionPane extends StatelessWidget {
     String summary, {
     bool isVoice,
     String? voiceFilePath,
+    Uint8List? voiceFileBytes,
+    String? voiceFileName,
+    String? voiceContentType,
     int? durationSeconds,
   })
   onReaction;
@@ -533,6 +551,9 @@ class _ReactionPane extends StatelessWidget {
                       '목소리 반응',
                       isVoice: true,
                       voiceFilePath: result.filePath,
+                      voiceFileBytes: result.fileBytes,
+                      voiceFileName: result.fileName,
+                      voiceContentType: result.contentType,
                       durationSeconds: result.durationSeconds,
                     );
                   }

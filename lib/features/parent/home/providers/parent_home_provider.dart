@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -157,12 +158,22 @@ Future<bool> submitParentVoice({
   required WidgetRef ref,
   required String type,
   required String questionId,
-  required String filePath,
+  String? filePath,
+  Uint8List? fileBytes,
+  String? fileName,
+  String? contentType,
 }) async {
   try {
     final result = await ref
         .read(parentRepositoryProvider)
-        .uploadVoice(type: type, questionId: questionId, filePath: filePath);
+        .uploadVoice(
+          type: type,
+          questionId: questionId,
+          filePath: filePath,
+          fileBytes: fileBytes,
+          fileName: fileName,
+          contentType: contentType,
+        );
     try {
       final analysis = await ref
           .read(parentRepositoryProvider)
