@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:itda/core/auth/auth_provider.dart';
 import 'package:itda/core/data/mock_itda_data.dart';
@@ -110,6 +111,130 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
     messenger.showSnackBar(
       SnackBar(content: Text('「${result.label}」로 응답했어요.')),
     );
+    await _showContactLauncherDialog(childName);
+  }
+
+  Future<void> _showContactLauncherDialog(String childName) async {
+    final name = childName.trim().isEmpty ? '자녀' : childName.trim();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: ItdaColors.orange.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    size: 38,
+                    color: ItdaColors.orange,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  '마음을 보냈어요',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: _pText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$name에게 바로 연락해볼까요?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: _pTextSub,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ContactLaunchButton(
+                        icon: Icons.chat_bubble_rounded,
+                        label: '카카오톡',
+                        color: const Color(0xFFFEE500),
+                        foreground: const Color(0xFF2D1F0A),
+                        onTap: () => _launchContactUri(
+                          Uri.parse('kakaotalk://'),
+                          fallbackLabel: '카카오톡',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ContactLaunchButton(
+                        icon: Icons.sms_rounded,
+                        label: '문자',
+                        color: ItdaColors.orange,
+                        foreground: Colors.white,
+                        onTap: () => _launchContactUri(
+                          Uri.parse('sms:'),
+                          fallbackLabel: '문자',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ContactLaunchButton(
+                        icon: Icons.call_rounded,
+                        label: '전화',
+                        color: _questSuccessGreen,
+                        foreground: Colors.white,
+                        onTap: () => _launchContactUri(
+                          Uri.parse('tel:'),
+                          fallbackLabel: '전화',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text(
+                    '나중에 하기',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: _pTextSub,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _launchContactUri(
+    Uri uri, {
+    required String fallbackLabel,
+  }) async {
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$fallbackLabel 앱을 열 수 없어요.')));
+    }
   }
 
   void _openPastPhotos() {
@@ -325,6 +450,64 @@ List<ParentReceivedPhoto> _mergeReceivedPhotos(
   final merged = byId.values.toList()
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   return merged;
+}
+
+class _ContactLaunchButton extends StatelessWidget {
+  const _ContactLaunchButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.foreground,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color foreground;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          height: 92,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.24),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 30, color: foreground),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 상단 인사 한 줄과 설정 버튼.
