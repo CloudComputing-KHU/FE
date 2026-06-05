@@ -38,20 +38,21 @@ class PhotoReactionService {
     required String filePath,
     Uint8List? fileBytes,
     String? fileName,
+    String? contentType,
     int? durationSeconds,
   }) async {
     final file = fileBytes == null
         ? await MultipartFile.fromFile(
             filePath,
             filename: fileName ?? filePath.split('/').last,
-            contentType: DioMediaType('audio', 'mp4'),
+            contentType: _mediaType(contentType),
           )
         : MultipartFile.fromBytes(
             fileBytes,
             filename: fileName == null || fileName.isEmpty
                 ? 'voice.m4a'
                 : fileName,
-            contentType: DioMediaType('audio', 'mp4'),
+            contentType: _mediaType(contentType),
           );
     final formData = FormData.fromMap({
       'file': file,
@@ -62,5 +63,14 @@ class PhotoReactionService {
       data: formData,
     );
     return PhotoReaction.fromJson(response.data!);
+  }
+
+  DioMediaType _mediaType(String? value) {
+    final fallback = DioMediaType('audio', 'mp4');
+    if (value == null || value.trim().isEmpty) return fallback;
+    final media = value.split(';').first.trim();
+    final slash = media.indexOf('/');
+    if (slash <= 0 || slash == media.length - 1) return fallback;
+    return DioMediaType(media.substring(0, slash), media.substring(slash + 1));
   }
 }

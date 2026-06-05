@@ -89,6 +89,18 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen>
           await reactionService.saveVoiceReaction(
             photoId: photoId,
             filePath: result.voiceFilePath!,
+            fileBytes: result.voiceFileBytes,
+            fileName: result.voiceFileName,
+            contentType: result.voiceContentType,
+            durationSeconds: result.durationSeconds,
+          );
+        } else if (result.isVoice && result.voiceFileBytes != null) {
+          await reactionService.saveVoiceReaction(
+            photoId: photoId,
+            filePath: result.voiceFileName ?? 'voice.m4a',
+            fileBytes: result.voiceFileBytes,
+            fileName: result.voiceFileName,
+            contentType: result.voiceContentType,
             durationSeconds: result.durationSeconds,
           );
         } else {

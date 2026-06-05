@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -64,11 +64,17 @@ class HealthVoiceRecordSheet extends ConsumerStatefulWidget {
 
 class VoiceRecordResult {
   const VoiceRecordResult({
-    required this.filePath,
+    this.filePath,
+    this.fileBytes,
+    required this.fileName,
+    required this.contentType,
     required this.durationSeconds,
   });
 
-  final String filePath;
+  final String? filePath;
+  final Uint8List? fileBytes;
+  final String fileName;
+  final String contentType;
   final int durationSeconds;
 }
 
@@ -93,13 +99,6 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
 
   Future<void> _bootstrap() async {
     if (!mounted) return;
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('웹에서는 녹음 대신 빠른 답변 버튼을 이용해 주세요.')),
-      );
-      Navigator.of(context).pop();
-      return;
-    }
     final ok = await _voice.ensureMicPermission();
     if (!mounted) return;
     if (!ok) {
@@ -158,15 +157,18 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
     setState(() => _busy = true);
     _tickTimer?.cancel();
     _waveCtrl.stop();
-    final path = await _voice.stopRecording();
+    final recording = await _voice.stopRecordingClip();
     _stopwatch.stop();
     if (!mounted) return;
     setState(() => _recording = false);
-    if (path != null) {
+    if (recording != null) {
       if (widget.recordOnly) {
         Navigator.of(context).pop(
           VoiceRecordResult(
-            filePath: path,
+            filePath: recording.filePath,
+            fileBytes: recording.fileBytes,
+            fileName: recording.fileName,
+            contentType: recording.contentType,
             durationSeconds: _stopwatch.elapsed.inSeconds,
           ),
         );
@@ -176,7 +178,10 @@ class _HealthVoiceRecordSheetState extends ConsumerState<HealthVoiceRecordSheet>
         ref: ref,
         type: widget.questionType,
         questionId: widget.questionId,
-        filePath: path,
+        filePath: recording.filePath,
+        fileBytes: recording.fileBytes,
+        fileName: recording.fileName,
+        contentType: recording.contentType,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
