@@ -439,7 +439,7 @@ class _ReactionPane extends StatelessWidget {
             children: [
               for (var i = 0; i < photos.length; i++) ...[
                 if (i > 0) const SizedBox(width: 8),
-                _PreviewThumb(url: photos[i].imageUrl),
+                _PreviewThumb(url: photos[i].displayUrl),
               ],
             ],
           ),

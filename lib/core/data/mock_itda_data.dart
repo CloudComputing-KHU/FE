@@ -345,6 +345,7 @@ class ParentPendingPhoto {
   final String imageUrl;
   final String caption;
   final String arrivedAt;
+  String get displayUrl => imageUrl;
 
   /// 캐러셀 헤더에 쓰는 날짜 라벨. 같은 날짜끼리 페이지 인디케이터를 묶을 때 사용합니다.
   final String dateLabel;

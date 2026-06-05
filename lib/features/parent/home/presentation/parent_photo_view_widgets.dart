@@ -210,7 +210,7 @@ class ParentPhotoHtmlCard extends StatelessWidget {
                 ),
                 child: ClipRect(
                   child: Image.network(
-                    photo.imageUrl,
+                    photo.displayUrl,
                     fit: BoxFit.cover,
                     width: double.infinity,
                     loadingBuilder: (_, child, prog) {

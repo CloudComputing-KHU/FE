@@ -2,6 +2,8 @@
 /// 백엔드 스키마(app/schemas/)와 1:1 대응합니다.
 library;
 
+import 'package:itda/core/api/api_endpoints.dart';
+
 class ParentQuestion {
   const ParentQuestion({
     required this.questionId,
@@ -123,7 +125,7 @@ class ParentReceivedPhoto {
   final DateTime createdAt;
 
   /// 실제 이미지를 로드할 URL. presigned_url이 있으면 우선 사용합니다.
-  String get displayUrl => presignedUrl ?? imageUrl;
+  String get displayUrl => _normalizeLocalUploadUrl(presignedUrl ?? imageUrl);
 
   factory ParentReceivedPhoto.fromJson(Map<String, dynamic> json) {
     return ParentReceivedPhoto(
@@ -140,4 +142,14 @@ class ParentReceivedPhoto {
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+}
+
+String _normalizeLocalUploadUrl(String url) {
+  final parsed = Uri.tryParse(url);
+  if (parsed == null || !parsed.path.startsWith('/local-uploads/')) {
+    return url;
+  }
+
+  final apiBase = Uri.parse(ApiEndpoints.baseUrl);
+  return apiBase.replace(path: parsed.path, query: parsed.query).toString();
 }

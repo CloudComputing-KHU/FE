@@ -1,3 +1,5 @@
+import 'package:itda/core/api/api_endpoints.dart';
+
 /// 사진 전송 엔티티.
 ///
 /// 백엔드 응답 (`POST /photos` 결과 / `GET /photos/history`) 매핑.
@@ -42,7 +44,7 @@ class Photo {
   bool get isScheduled => status == 'scheduled';
 
   /// 화면에 띄울 URL — presigned URL이 있으면 그것, 없으면 imageUrl.
-  String get displayUrl => presignedUrl ?? imageUrl;
+  String get displayUrl => _normalizeLocalUploadUrl(presignedUrl ?? imageUrl);
 
   factory Photo.fromJson(Map<String, dynamic> json) {
     return Photo(
@@ -59,4 +61,14 @@ class Photo {
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+}
+
+String _normalizeLocalUploadUrl(String url) {
+  final parsed = Uri.tryParse(url);
+  if (parsed == null || !parsed.path.startsWith('/local-uploads/')) {
+    return url;
+  }
+
+  final apiBase = Uri.parse(ApiEndpoints.baseUrl);
+  return apiBase.replace(path: parsed.path, query: parsed.query).toString();
 }
