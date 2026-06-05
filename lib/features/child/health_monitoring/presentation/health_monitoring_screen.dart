@@ -10,12 +10,17 @@ import 'package:itda/features/child/shell/presentation/child_colors.dart';
 import 'package:itda/features/child/shell/presentation/child_tab_bar.dart';
 import 'package:itda/features/child/widgets/child_widgets.dart';
 
+final _selectedAnalysisIdProvider = StateProvider.autoDispose<String?>(
+  (ref) => null,
+);
+
 class HealthMonitoringScreen extends ConsumerWidget {
   const HealthMonitoringScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analysesAsync = ref.watch(parentDementiaHistoryProvider);
+    final selectedAnalysisId = ref.watch(_selectedAnalysisIdProvider);
     final bottomPad = ChildHtmlTabBar.scrollBottomPadding(context);
 
     return ColoredBox(
@@ -31,8 +36,6 @@ class HealthMonitoringScreen extends ConsumerWidget {
             padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const _SectionTitle(title: '최신 AI 음성 분석'),
-                const SizedBox(height: 10),
                 analysesAsync.when(
                   loading: () => const _LoadingCard(),
                   error: (error, _) => _ErrorCard(
@@ -44,13 +47,24 @@ class HealthMonitoringScreen extends ConsumerWidget {
                     if (items.isEmpty) {
                       return const _EmptyAnalysisSection();
                     }
-                    final latest = items.first;
+                    final selectedItem = _resolveSelectedAnalysis(
+                      items,
+                      selectedAnalysisId,
+                    );
+                    final isLatest =
+                        selectedItem.analysisId == items.first.analysisId;
                     return _LatestAnalysisSection(
-                      item: latest,
+                      title: isLatest ? '최신 AI 음성 분석' : '선택한 AI 음성 분석',
+                      item: selectedItem,
                       detailAsync: ref.watch(
-                        dementiaAnalysisDetailProvider(latest.analysisId),
+                        dementiaAnalysisDetailProvider(selectedItem.analysisId),
                       ),
                       history: items,
+                      selectedAnalysisId: selectedItem.analysisId,
+                      onSelectAnalysis: (item) {
+                        ref.read(_selectedAnalysisIdProvider.notifier).state =
+                            item.analysisId;
+                      },
                     );
                   },
                 ),
@@ -87,14 +101,20 @@ class CupertinoSliverRefreshControlCompat extends StatelessWidget {
 
 class _LatestAnalysisSection extends StatelessWidget {
   const _LatestAnalysisSection({
+    required this.title,
     required this.item,
     required this.detailAsync,
     required this.history,
+    required this.selectedAnalysisId,
+    required this.onSelectAnalysis,
   });
 
+  final String title;
   final DementiaAnalysisItem item;
   final AsyncValue<DementiaAnalysisResult> detailAsync;
   final List<DementiaAnalysisItem> history;
+  final String selectedAnalysisId;
+  final ValueChanged<DementiaAnalysisItem> onSelectAnalysis;
 
   @override
   Widget build(BuildContext context) {
@@ -103,11 +123,18 @@ class _LatestAnalysisSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _SectionTitle(title: title),
+        const SizedBox(height: 10),
         _HeroAnalysisCard(item: item),
         const SizedBox(height: 14),
         _AnalysisDetailCard(item: item, detail: detail),
         const SizedBox(height: 22),
-        _RecentHistorySection(items: history.take(5).toList()),
+        _RecentHistorySection(
+          items: history.take(5).toList(),
+          allItems: history,
+          selectedAnalysisId: selectedAnalysisId,
+          onSelect: onSelectAnalysis,
+        ),
       ],
     );
   }
@@ -253,7 +280,11 @@ class _EmptyAnalysisSection extends StatelessWidget {
         SizedBox(height: 14),
         _EmptyDetailCard(),
         SizedBox(height: 22),
-        _RecentHistorySection(items: []),
+        _RecentHistorySection(
+          items: [],
+          allItems: [],
+          selectedAnalysisId: null,
+        ),
       ],
     );
   }
@@ -294,9 +325,17 @@ class _EmptyDetailCard extends StatelessWidget {
 }
 
 class _RecentHistorySection extends StatelessWidget {
-  const _RecentHistorySection({required this.items});
+  const _RecentHistorySection({
+    required this.items,
+    required this.allItems,
+    required this.selectedAnalysisId,
+    this.onSelect,
+  });
 
   final List<DementiaAnalysisItem> items;
+  final List<DementiaAnalysisItem> allItems;
+  final String? selectedAnalysisId;
+  final ValueChanged<DementiaAnalysisItem>? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +346,14 @@ class _RecentHistorySection extends StatelessWidget {
             const _SectionTitle(title: '최근 분석 기록'),
             const Spacer(),
             TextButton(
-              onPressed: items.isEmpty ? null : () {},
+              onPressed: allItems.isEmpty
+                  ? null
+                  : () => _showAllHistorySheet(
+                      context,
+                      allItems,
+                      selectedAnalysisId,
+                      onSelect,
+                    ),
               style: TextButton.styleFrom(
                 foregroundColor: ChildDashboardColors.textMuted,
                 disabledForegroundColor: ChildDashboardColors.textMuted
@@ -334,8 +380,106 @@ class _RecentHistorySection extends StatelessWidget {
         if (items.isEmpty)
           const _EmptyHistoryList()
         else
-          _HistoryList(items: items),
+          _HistoryList(
+            items: items,
+            selectedAnalysisId: selectedAnalysisId,
+            onSelect: onSelect,
+          ),
       ],
+    );
+  }
+}
+
+void _showAllHistorySheet(
+  BuildContext context,
+  List<DementiaAnalysisItem> items,
+  String? selectedAnalysisId,
+  ValueChanged<DementiaAnalysisItem>? onSelect,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: ChildDashboardColors.orangePale,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (context) => _AllHistorySheet(
+      items: items,
+      selectedAnalysisId: selectedAnalysisId,
+      onSelect: onSelect,
+    ),
+  );
+}
+
+class _AllHistorySheet extends StatelessWidget {
+  const _AllHistorySheet({
+    required this.items,
+    required this.selectedAnalysisId,
+    required this.onSelect,
+  });
+
+  final List<DementiaAnalysisItem> items;
+  final String? selectedAnalysisId;
+  final ValueChanged<DementiaAnalysisItem>? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ChildDashboardColors.textMuted.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Expanded(child: _SectionTitle(title: '전체 분석 기록')),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: ChildDashboardColors.textMuted,
+                    tooltip: '닫기',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    _HistoryList(
+                      items: items,
+                      selectedAnalysisId: selectedAnalysisId,
+                      onSelect: (item) {
+                        onSelect?.call(item);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -441,9 +585,15 @@ class _AnalysisDetailCard extends StatelessWidget {
 }
 
 class _HistoryList extends StatelessWidget {
-  const _HistoryList({required this.items});
+  const _HistoryList({
+    required this.items,
+    required this.selectedAnalysisId,
+    this.onSelect,
+  });
 
   final List<DementiaAnalysisItem> items;
+  final String? selectedAnalysisId;
+  final ValueChanged<DementiaAnalysisItem>? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -453,7 +603,13 @@ class _HistoryList extends StatelessWidget {
         children: [
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const Divider(height: 1, color: Color(0xFFF0E2C8)),
-            _HistoryRow(item: items[i], leading: i == 0),
+            _HistoryRow(
+              item: items[i],
+              selected:
+                  items[i].analysisId == selectedAnalysisId ||
+                  (selectedAnalysisId == null && i == 0),
+              onTap: onSelect == null ? null : () => onSelect!(items[i]),
+            ),
           ],
         ],
       ),
@@ -462,80 +618,91 @@ class _HistoryList extends StatelessWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.item, required this.leading});
+  const _HistoryRow({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
 
   final DementiaAnalysisItem item;
-  final bool leading;
+  final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final risk = _RiskPresentation.from(item.riskLevel);
     final score = _scoreOutOf100(item.riskScore);
 
-    return Container(
-      decoration: BoxDecoration(
-        border: leading
-            ? Border(left: BorderSide(color: risk.color, width: 3))
-            : null,
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Text(
-              _formatFullDate(item.completedAt ?? item.createdAt),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: ChildDashboardColors.text,
+    return Material(
+      color: selected ? risk.color.withValues(alpha: 0.06) : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: selected
+                ? Border(left: BorderSide(color: risk.color, width: 3))
+                : null,
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  _formatFullDate(item.completedAt ?? item.createdAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: ChildDashboardColors.text,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _StatusChip(status: item.status, compact: true),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              item.status == DementiaAnalysisStatus.completed
-                  ? risk.label
-                  : '-',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                color: item.status == DementiaAnalysisStatus.completed
-                    ? risk.color
-                    : ChildDashboardColors.textMuted,
+              Expanded(
+                flex: 3,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _StatusChip(status: item.status, compact: true),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              score == null ? '-' : '$score점',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: ChildDashboardColors.text,
+              Expanded(
+                flex: 2,
+                child: Text(
+                  item.status == DementiaAnalysisStatus.completed
+                      ? risk.label
+                      : '-',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: item.status == DementiaAnalysisStatus.completed
+                        ? risk.color
+                        : ChildDashboardColors.textMuted,
+                  ),
+                ),
               ),
-            ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  score == null ? '-' : '$score점',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: ChildDashboardColors.text,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: selected ? risk.color : ChildDashboardColors.textMuted,
+                size: 20,
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: ChildDashboardColors.textMuted,
-            size: 20,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -886,6 +1053,20 @@ String _formatFullDate(DateTime date) {
   String two(int value) => value.toString().padLeft(2, '0');
   return '${local.year}.${two(local.month)}.${two(local.day)} '
       '${two(local.hour)}:${two(local.minute)}';
+}
+
+DementiaAnalysisItem _resolveSelectedAnalysis(
+  List<DementiaAnalysisItem> items,
+  String? selectedAnalysisId,
+) {
+  if (selectedAnalysisId != null) {
+    for (final item in items) {
+      if (item.analysisId == selectedAnalysisId) {
+        return item;
+      }
+    }
+  }
+  return items.first;
 }
 
 String _fallbackSummary(DementiaAnalysisItem item) {
