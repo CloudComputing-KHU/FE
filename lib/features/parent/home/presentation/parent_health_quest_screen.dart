@@ -98,10 +98,10 @@ class ParentHealthQuestScreen extends ConsumerWidget {
       case 1:
         return '오늘의 식사 질문';
       case 2:
-        return '오늘의 기분 질문';
+        return '이번 주 계획 질문';
       case 0:
       default:
-        return '오늘의 건강 질문';
+        return '병원·약국 질문';
     }
   }
 
@@ -109,11 +109,11 @@ class ParentHealthQuestScreen extends ConsumerWidget {
   static String _fallbackQuestionText(int step) {
     switch (step) {
       case 1:
-        return '오늘 식사는\n잘 하셨어요?';
+        return '오늘 아침이나\n점심은요?';
       case 2:
-        return '오늘 기분은\n어떠세요?';
+        return '이번 주 계획이\n있으세요?';
       default:
-        return '오늘 약은\n드셨어요?';
+        return '최근 병원이나\n약국에 가셨어요?';
     }
   }
 
@@ -479,22 +479,22 @@ List<_QuestQuickSpec> _quickSpecsForStep(int step) {
     case 1:
       return const [
         _QuestQuickSpec(
-          summary: '네, 잘 먹었어요',
-          label: '네, 잘\n먹었어요',
+          summary: '잘 챙겨 먹었어요',
+          label: '잘 챙겨\n먹었어요',
           borderColor: _greenBorder,
           textColor: _greenText,
-        ),
-        _QuestQuickSpec(
-          summary: '아직 안 먹었어요',
-          label: '아직 안\n먹었어요',
-          borderColor: ItdaColors.danger,
-          textColor: ItdaColors.danger,
         ),
         _QuestQuickSpec(
           summary: '간단히 먹었어요',
           label: '간단히\n먹었어요',
           borderColor: ItdaColors.border,
           textColor: _pText,
+        ),
+        _QuestQuickSpec(
+          summary: '아직 안 먹었어요',
+          label: '아직 안\n먹었어요',
+          borderColor: ItdaColors.danger,
+          textColor: ItdaColors.danger,
         ),
         _QuestQuickSpec(
           summary: '기억이 안 나요',
@@ -506,48 +506,48 @@ List<_QuestQuickSpec> _quickSpecsForStep(int step) {
     case 2:
       return const [
         _QuestQuickSpec(
-          summary: '좋아요',
-          label: '좋아요',
+          summary: '기대되는 일이 있어요',
+          label: '기대되는\n일이 있어요',
           borderColor: _greenBorder,
           textColor: _greenText,
         ),
         _QuestQuickSpec(
-          summary: '괜찮아요',
-          label: '괜찮아요',
+          summary: '해야 할 일이 있어요',
+          label: '해야 할\n일이 있어요',
           borderColor: ItdaColors.border,
           textColor: _pText,
         ),
         _QuestQuickSpec(
-          summary: '좀 피곤해요',
-          label: '좀\n피곤해요',
+          summary: '특별한 일 없어요',
+          label: '특별한 일\n없어요',
           borderColor: ItdaColors.border,
           textColor: _pText,
         ),
         _QuestQuickSpec(
-          summary: '안 좋아요',
-          label: '안 좋아요',
-          borderColor: ItdaColors.danger,
-          textColor: ItdaColors.danger,
+          summary: '기억이 안 나요',
+          label: '기억이 안\n나요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
         ),
       ];
     case 0:
     default:
       return const [
         _QuestQuickSpec(
-          summary: '네, 먹었어요',
-          label: '네, 먹었어요',
+          summary: '병원에 다녀왔어요',
+          label: '병원에\n다녀왔어요',
           borderColor: _greenBorder,
           textColor: _greenText,
         ),
         _QuestQuickSpec(
-          summary: '아직 안 먹었어요',
-          label: '아직 안\n먹었어요',
-          borderColor: ItdaColors.danger,
-          textColor: ItdaColors.danger,
+          summary: '약국에 다녀왔어요',
+          label: '약국에\n다녀왔어요',
+          borderColor: ItdaColors.border,
+          textColor: _pText,
         ),
         _QuestQuickSpec(
-          summary: '약이 없어요',
-          label: '약이 없어요',
+          summary: '다녀온 적 없어요',
+          label: '다녀온 적\n없어요',
           borderColor: ItdaColors.border,
           textColor: _pText,
         ),
